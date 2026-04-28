@@ -1,11 +1,24 @@
-export const dynamic = 'force-dynamic'
+'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getAllClients } from '@/lib/clients'
 import { Plus, Search, ChevronRight } from 'lucide-react'
+import { searchClients, Client } from '@/lib/clients'
 
-export default async function ClientsPage() {
-  const clients = await getAllClients()
+export default function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([])
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchClients(query)
+        .then(setClients)
+        .finally(() => setLoading(false))
+    }, 200) // debounce 200ms
+
+    return () => clearTimeout(timer)
+  }, [query])
 
   return (
     <div className="p-10 max-w-7xl">
@@ -35,27 +48,35 @@ export default async function ClientsPage() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, phone, or email..."
             className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-stone-200 rounded-md focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-100"
           />
         </div>
         <div className="ml-auto flex items-center gap-1 text-xs text-stone-500">
-          <span>Showing</span>
-          <span className="font-medium text-stone-700">{clients.length}</span>
-          <span>of {clients.length}</span>
+          <span>{clients.length} {clients.length === 1 ? 'client' : 'clients'}</span>
         </div>
       </div>
 
       <div className="bg-white border border-stone-200 rounded-lg overflow-hidden">
-        {clients.length === 0 ? (
+        {loading ? (
           <div className="p-16 text-center">
-            <p className="text-stone-500 text-sm">No clients yet.</p>
-            <Link
-              href="/clients/new"
-              className="inline-flex items-center gap-2 mt-4 text-sm text-stone-900 underline hover:no-underline"
-            >
-              Add your first client
-            </Link>
+            <p className="text-stone-500 text-sm">Loading...</p>
+          </div>
+        ) : clients.length === 0 ? (
+          <div className="p-16 text-center">
+            <p className="text-stone-500 text-sm">
+              {query ? 'No clients match your search.' : 'No clients yet.'}
+            </p>
+            {!query && (
+              <Link
+                href="/clients/new"
+                className="inline-flex items-center gap-2 mt-4 text-sm text-stone-900 underline hover:no-underline"
+              >
+                Add your first client
+              </Link>
+            )}
           </div>
         ) : (
           <table className="w-full">

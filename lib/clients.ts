@@ -73,3 +73,17 @@ export async function deleteClient(id: string): Promise<void> {
 
   if (error) throw error
 }
+export async function searchClients(query: string): Promise<Client[]> {
+    if (!query.trim()) return getAllClients()
+  
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .or(
+        `name.ilike.%${query}%,phone.ilike.%${query}%,mobile.ilike.%${query}%,email.ilike.%${query}%`
+      )
+      .order('name', { ascending: true })
+  
+    if (error) throw error
+    return data || []
+  }
