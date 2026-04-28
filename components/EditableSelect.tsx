@@ -58,7 +58,7 @@ export default function EditableSelect({
           value={value || ''}
           onChange={(e) => onChange(e.target.value || null)}
           disabled={loading}
-          className="flex-1 px-3 py-2 text-sm bg-white border border-stone-200 rounded-md focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-100"
+          className="flex-1 px-3 py-2 text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-border"
         >
           <option value="">{placeholder}</option>
           {options.map((opt) => (
@@ -70,14 +70,14 @@ export default function EditableSelect({
         <button
           type="button"
           onClick={() => setManaging(!managing)}
-          className="px-3 py-2 text-xs text-stone-600 bg-white border border-stone-200 rounded-md hover:bg-stone-50"
+          className="px-3 py-2 text-xs text-text-muted bg-surface border border-border-strong rounded-md hover:bg-surface-hover"
         >
           {managing ? 'Done' : 'Manage'}
         </button>
       </div>
 
       {managing && (
-        <div className="mt-2 p-3 bg-stone-50 border border-stone-200 rounded-md space-y-2">
+        <div className="mt-2 p-3 bg-surface-muted border border-border rounded-md space-y-2">
           <div className="flex gap-2">
             <input
               type="text"
@@ -90,12 +90,12 @@ export default function EditableSelect({
                 }
               }}
               placeholder="Add new option..."
-              className="flex-1 px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-md"
+              className="flex-1 px-3 py-1.5 text-sm bg-surface border border-border-strong rounded-md"
             />
             <button
               type="button"
               onClick={handleAdd}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs text-white bg-stone-900 rounded-md hover:bg-stone-800"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs text-accent-text bg-accent rounded-md hover:bg-accent-hover"
             >
               <Plus size={12} /> Add
             </button>
@@ -105,13 +105,13 @@ export default function EditableSelect({
               {options.map((opt) => (
                 <li
                   key={opt.id}
-                  className="flex items-center justify-between text-sm px-2 py-1 bg-white rounded border border-stone-100"
+                  className="flex items-center justify-between text-sm px-2 py-1 bg-surface rounded border border-border"
                 >
                   <span>{opt.value}</span>
                   <button
                     type="button"
                     onClick={() => handleRemove(opt.id)}
-                    className="text-stone-400 hover:text-red-700"
+                    className="text-text-faint hover:text-danger"
                   >
                     <X size={14} />
                   </button>

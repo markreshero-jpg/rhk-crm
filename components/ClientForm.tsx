@@ -54,12 +54,8 @@ export default function ClientForm({
 
     setIsSubmitting(true)
     try {
-      // Clean empty strings → null so the database doesn't store empty values
       const cleanData = Object.fromEntries(
-        Object.entries(formData).map(([k, v]) => [
-          k,
-          v === '' ? null : v,
-        ])
+        Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
       )
       await onSubmit(cleanData)
       router.push('/clients')
@@ -92,14 +88,13 @@ export default function ClientForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm">
+        <div className="bg-danger-bg border border-danger-border text-danger px-4 py-3 rounded-md text-sm">
           {error}
         </div>
       )}
 
-      {/* Basic info */}
       <section className="space-y-4">
-        <h3 className="text-[10px] uppercase tracking-widest text-stone-500 font-medium">
+        <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
           Basic Information
         </h3>
 
@@ -124,7 +119,7 @@ export default function ClientForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-        <Field label="Client Type">
+          <Field label="Client Type">
             <EditableSelect
               listName="client_type"
               value={formData.client_type || null}
@@ -163,9 +158,8 @@ export default function ClientForm({
         )}
       </section>
 
-      {/* Contact */}
       <section className="space-y-4">
-        <h3 className="text-[10px] uppercase tracking-widest text-stone-500 font-medium">
+        <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
           Contact Details
         </h3>
 
@@ -199,9 +193,8 @@ export default function ClientForm({
         </Field>
       </section>
 
-      {/* Address */}
       <section className="space-y-4">
-        <h3 className="text-[10px] uppercase tracking-widest text-stone-500 font-medium">
+        <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
           Address
         </h3>
 
@@ -244,9 +237,8 @@ export default function ClientForm({
         </div>
       </section>
 
-      {/* Notes */}
       <section className="space-y-4">
-        <h3 className="text-[10px] uppercase tracking-widest text-stone-500 font-medium">
+        <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
           Notes
         </h3>
         <Field label="Notes">
@@ -260,15 +252,14 @@ export default function ClientForm({
         </Field>
       </section>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-stone-200">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         <div>
           {onDelete && (
             <button
               type="button"
               onClick={handleDelete}
               disabled={isSubmitting}
-              className="text-sm text-red-700 hover:text-red-900 disabled:opacity-50"
+              className="text-sm text-danger hover:opacity-80 disabled:opacity-50"
             >
               Delete client
             </button>
@@ -279,14 +270,14 @@ export default function ClientForm({
             type="button"
             onClick={() => router.back()}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm text-stone-700 bg-white border border-stone-200 rounded-md hover:bg-stone-50 disabled:opacity-50"
+            className="px-4 py-2 text-sm text-text-muted bg-surface border border-border-strong rounded-md hover:bg-surface-hover disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm text-white bg-stone-900 rounded-md hover:bg-stone-800 disabled:opacity-50"
+            className="px-4 py-2 text-sm text-accent-text bg-accent rounded-md hover:bg-accent-hover disabled:opacity-50"
           >
             {isSubmitting ? 'Saving...' : submitLabel}
           </button>
@@ -297,7 +288,7 @@ export default function ClientForm({
 }
 
 const inputClass =
-  'w-full px-3 py-2 text-sm bg-white border border-stone-200 rounded-md focus:outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-100'
+  'w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-border'
 
 function Field({
   label,
@@ -310,9 +301,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-stone-700 mb-1.5">
+      <span className="block text-xs font-medium text-text-muted mb-1.5">
         {label}
-        {required && <span className="text-red-600 ml-1">*</span>}
+        {required && <span className="text-danger ml-1">*</span>}
       </span>
       {children}
     </label>

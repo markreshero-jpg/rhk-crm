@@ -36,7 +36,7 @@ export default function EditClientPage({
   if (loading) {
     return (
       <div className="p-10">
-        <p className="text-stone-500 text-sm">Loading...</p>
+        <p className="text-text-subtle text-sm">Loading...</p>
       </div>
     )
   }
@@ -44,7 +44,7 @@ export default function EditClientPage({
   if (error || !client) {
     return (
       <div className="p-10">
-        <p className="text-red-700 text-sm">{error || 'Client not found'}</p>
+        <p className="text-danger text-sm">{error || 'Client not found'}</p>
         <Link href="/clients" className="text-sm underline mt-4 inline-block">
           Back to clients
         </Link>
@@ -56,18 +56,18 @@ export default function EditClientPage({
     <div className="p-10 max-w-7xl">
       <Link
         href="/clients"
-        className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-stone-900 mb-4"
+        className="inline-flex items-center gap-1 text-xs text-text-subtle hover:text-text mb-4"
       >
         <ChevronLeft size={14} /> Back to clients
       </Link>
 
-      <p className="text-xs uppercase tracking-widest text-stone-500 mb-2">
+      <p className="text-xs uppercase tracking-widest text-text-subtle mb-2">
         Workspace
       </p>
-      <h2 className="text-4xl font-medium text-stone-900 tracking-tight mb-2">
+      <h2 className="text-4xl font-medium text-text tracking-tight mb-2">
         {client.name}
       </h2>
-      <p className="text-stone-500 mt-2 mb-8 text-sm">
+      <p className="text-text-muted mt-2 mb-8 text-sm">
         Edit client details.
       </p>
 

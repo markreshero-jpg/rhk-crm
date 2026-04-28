@@ -79,7 +79,7 @@ export async function searchClients(query: string): Promise<Client[]> {
       .from('clients')
       .select('*')
       .or(
-        `name.ilike.%${query}%,phone.ilike.%${query}%,mobile.ilike.%${query}%,email.ilike.%${query}%`
+        `name.ilike.%${query}%,phone.ilike.%${query}%,mobile.ilike.%${query}%,email.ilike.%${query}%,suburb.ilike.%${query}%`
       )
       .order('name', { ascending: true })
   
