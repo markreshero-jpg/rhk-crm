@@ -12,9 +12,8 @@ export type Client = {
   address_line_1: string | null
   address_line_2: string | null
   suburb: string | null
-  city: string | null
   postcode: string | null
-  client_type: 'Residential' | 'Commercial' | 'Property Manager' | null
+  client_type: string | null
   client_source: 'Referral' | 'Walk In' | 'Website' | 'Repeat' | 'Unknown' | null
   referred_by: string | null
   notes: string | null

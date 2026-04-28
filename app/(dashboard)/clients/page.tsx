@@ -79,15 +79,16 @@ export default function ClientsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full">
+            <table className="w-full">
             <thead className="bg-stone-50 border-b border-stone-200">
               <tr className="text-left text-[11px] uppercase tracking-wider text-stone-500">
-                <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Phone</th>
-                <th className="px-5 py-3 font-medium">Email</th>
-                <th className="px-5 py-3 font-medium">Type</th>
-                <th className="px-5 py-3 font-medium">Source</th>
-                <th className="px-5 py-3 font-medium w-10"></th>
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Phone</th>
+                <th className="px-4 py-2.5 font-medium">Email</th>
+                <th className="px-4 py-2.5 font-medium">Suburb</th>
+                <th className="px-4 py-2.5 font-medium">Type</th>
+                <th className="px-4 py-2.5 font-medium">Source</th>
+                <th className="px-4 py-2.5 font-medium w-8"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -96,24 +97,27 @@ export default function ClientsPage() {
                   key={client.id}
                   className="hover:bg-stone-50/70 transition-colors group"
                 >
-                  <td className="px-5 py-4 text-sm font-medium text-stone-900">
+                  <td className="px-4 py-2.5 text-sm font-medium text-stone-900">
                     <Link href={`/clients/${client.id}`} className="block">
                       {client.name}
                     </Link>
                   </td>
-                  <td className="px-5 py-4 text-sm text-stone-600">
+                  <td className="px-4 py-2.5 text-sm text-stone-600 whitespace-nowrap">
                     {client.phone || client.mobile || '—'}
                   </td>
-                  <td className="px-5 py-4 text-sm text-stone-600">
+                  <td className="px-4 py-2.5 text-sm text-stone-600">
                     {client.email || '—'}
                   </td>
-                  <td className="px-5 py-4 text-sm text-stone-600">
+                  <td className="px-4 py-2.5 text-sm text-stone-600">
+                    {client.suburb || '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-stone-600 whitespace-nowrap">
                     {client.client_type || '—'}
                   </td>
-                  <td className="px-5 py-4 text-sm text-stone-600">
+                  <td className="px-4 py-2.5 text-sm text-stone-600 whitespace-nowrap">
                     {client.client_source || '—'}
                   </td>
-                  <td className="px-5 py-4 text-stone-400 group-hover:text-stone-700">
+                  <td className="px-4 py-2.5 text-stone-400 group-hover:text-stone-700">
                     <Link href={`/clients/${client.id}`}>
                       <ChevronRight size={16} />
                     </Link>

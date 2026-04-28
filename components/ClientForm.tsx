@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Client } from '@/lib/clients'
+import EditableSelect from './EditableSelect'
 
 type ClientFormProps = {
   initialData?: Partial<Client>
@@ -30,7 +31,6 @@ export default function ClientForm({
     address_line_1: initialData.address_line_1 || '',
     address_line_2: initialData.address_line_2 || '',
     suburb: initialData.suburb || '',
-    city: initialData.city || '',
     postcode: initialData.postcode || '',
     client_type: initialData.client_type || null,
     client_source: initialData.client_source || null,
@@ -124,19 +124,12 @@ export default function ClientForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Client Type">
-            <select
-              value={formData.client_type || ''}
-              onChange={(e) =>
-                handleChange('client_type', e.target.value || null)
-              }
-              className={inputClass}
-            >
-              <option value="">— Select —</option>
-              <option value="Residential">Residential</option>
-              <option value="Commercial">Commercial</option>
-              <option value="Property Manager">Property Manager</option>
-            </select>
+        <Field label="Client Type">
+            <EditableSelect
+              listName="client_type"
+              value={formData.client_type || null}
+              onChange={(v) => handleChange('client_type', v)}
+            />
           </Field>
 
           <Field label="Client Source">
@@ -231,20 +224,12 @@ export default function ClientForm({
           />
         </Field>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Suburb">
             <input
               type="text"
               value={formData.suburb || ''}
               onChange={(e) => handleChange('suburb', e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="City">
-            <input
-              type="text"
-              value={formData.city || ''}
-              onChange={(e) => handleChange('city', e.target.value)}
               className={inputClass}
             />
           </Field>
