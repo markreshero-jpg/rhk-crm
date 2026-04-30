@@ -1,11 +1,15 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import JobForm from '@/components/JobForm'
 import { createJob, Job } from '@/lib/jobs'
 
 export default function NewJobPage() {
+  const searchParams = useSearchParams()
+  const prefilledClientId = searchParams.get('client_id')
+
   return (
     <div className="p-10 max-w-7xl">
       <Link
@@ -26,6 +30,7 @@ export default function NewJobPage() {
       </p>
 
       <JobForm
+        initialData={prefilledClientId ? { client_id: prefilledClientId } : {}}
         onSubmit={async (data: Partial<Job>) => {
           await createJob(data)
         }}

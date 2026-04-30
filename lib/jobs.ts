@@ -98,3 +98,13 @@ export async function deleteJob(id: string): Promise<void> {
 
   if (error) throw error
 }
+export async function getJobsByClientId(clientId: string): Promise<JobWithClient[]> {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('*, client:clients(id, name)')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+  
+    if (error) throw error
+    return (data as JobWithClient[]) || []
+  }
