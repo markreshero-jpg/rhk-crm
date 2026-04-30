@@ -376,7 +376,7 @@ function QuoteItemRow({
       </td>
       <td className="px-4 py-1.5">
         <Link
-          href={`/jobs/${item.issue_id}/quote-items/${item.id}`}
+          href={`/quote-items/${item.id}`}
           className="text-text-faint hover:text-text"
           title="Open quote item details"
         >

@@ -70,3 +70,25 @@ export async function renumberQuoteItems(issueId: string): Promise<void> {
     await updateQuoteItem(items[i].id, { sort: (i + 1) * 10 })
   }
 }
+export type QuoteItemWithContext = QuoteItem & {
+    issue: {
+      id: string
+      issue_number: number
+      job: {
+        id: string
+        job_number: string
+        title: string | null
+      }
+    }
+  }
+  
+  export async function getQuoteItemById(id: string): Promise<QuoteItemWithContext | null> {
+    const { data, error } = await supabase
+      .from('quote_items')
+      .select('*, issue:issues(id, issue_number, job:jobs(id, job_number, title))')
+      .eq('id', id)
+      .single()
+  
+    if (error) throw error
+    return data as QuoteItemWithContext
+  }
