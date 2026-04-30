@@ -86,3 +86,25 @@ export async function searchClients(query: string): Promise<Client[]> {
     if (error) throw error
     return data || []
   }
+  export type ClientContact = {
+    id: string
+    name: string
+    phone: string | null
+    mobile: string | null
+    email: string | null
+    address_line_1: string | null
+    address_line_2: string | null
+    suburb: string | null
+    postcode: string | null
+  }
+  
+  export async function getClientContact(id: string): Promise<ClientContact | null> {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id, name, phone, mobile, email, address_line_1, address_line_2, suburb, postcode')
+      .eq('id', id)
+      .single()
+  
+    if (error) throw error
+    return data
+  }

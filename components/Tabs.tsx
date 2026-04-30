@@ -71,7 +71,7 @@ export default function Tabs({
       </div>
 
       {/* The bordered panel containing tab content */}
-      <div className="bg-surface border border-border rounded-lg rounded-tl-none p-8">
+      <div className="bg-surface border border-border rounded-lg rounded-tl-none p-6">
         {children}
       </div>
     </div>

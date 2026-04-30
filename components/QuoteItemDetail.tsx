@@ -218,22 +218,22 @@ export default function QuoteItemDetail({
                   <table className="w-full min-w-[1100px]">
                     <thead className="bg-surface-muted border-b border-border">
                       <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
-                        <th className="px-2 py-2 font-medium w-14">Sort</th>
-                        <th className="px-2 py-2 font-medium w-40">Item</th>
-                        <th className="px-2 py-2 font-medium">Description</th>
-                        <th className="px-2 py-2 font-medium w-32">Supplier</th>
-                        <th className="px-2 py-2 font-medium w-24">Code</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Price</th>
-                        <th className="px-2 py-2 font-medium w-16 text-right">Qty</th>
-                        <th className="px-2 py-2 font-medium w-20 text-right">Sub Total</th>
-                        <th className="px-2 py-2 font-medium w-16 text-right">Markup</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Sub + Mup</th>
-                        <th className="px-2 py-2 font-medium w-20 text-right">GST</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Total</th>
-                        <th className="px-2 py-2 font-medium w-8"></th>
+                        <th className="px-1.5 py-1 font-medium w-14">Sort</th>
+                        <th className="px-1.5 py-1 font-medium w-40">Item</th>
+                        <th className="px-1.5 py-1 font-medium">Description</th>
+                        <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
+                        <th className="px-1.5 py-1 font-medium w-24">Code</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
+                        <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
+                        <th className="px-1.5 py-1 font-medium w-20 text-right">Sub Total</th>
+                        <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
+                        <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
+                        <th className="px-1.5 py-1 font-medium w-8"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
                       {lines.length === 0 ? (
                         <tr>
                           <td colSpan={13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
@@ -257,12 +257,12 @@ export default function QuoteItemDetail({
                     {lines.length > 0 && (
                       <tfoot className="bg-surface-muted border-t border-border">
                         <tr className="text-[11px] text-text-muted">
-                          <td colSpan={7} className="px-2 py-2 text-right font-medium">Totals:</td>
-                          <td className="px-2 py-2 text-right">{formatCurrency(linesSubtotalCost)}</td>
+                          <td colSpan={7} className="px-1.5 py-1 text-right font-medium">Totals:</td>
+                          <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalCost)}</td>
                           <td></td>
-                          <td className="px-2 py-2 text-right">{formatCurrency(linesSubtotalIncMup)}</td>
-                          <td className="px-2 py-2 text-right">{formatCurrency(linesGst)}</td>
-                          <td className="px-2 py-2 text-right font-medium text-text">{formatCurrency(linesTotal)}</td>
+                          <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalIncMup)}</td>
+                          <td className="px-1.5 py-1 text-right">{formatCurrency(linesGst)}</td>
+                          <td className="px-1.5 py-1 text-right font-medium text-text">{formatCurrency(linesTotal)}</td>
                           <td></td>
                         </tr>
                         <tr className="text-[10px] text-text-faint">
@@ -309,19 +309,19 @@ export default function QuoteItemDetail({
                   <table className="w-full min-w-[800px]">
                     <thead className="bg-surface-muted border-b border-border">
                       <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
-                        <th className="px-2 py-2 font-medium w-14">Sort</th>
-                        <th className="px-2 py-2 font-medium w-48">Type</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Price/Hr</th>
-                        <th className="px-2 py-2 font-medium w-20 text-right">Hours</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Sub Total</th>
-                        <th className="px-2 py-2 font-medium w-16 text-right">Markup</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Sub + Mup</th>
-                        <th className="px-2 py-2 font-medium w-20 text-right">GST</th>
-                        <th className="px-2 py-2 font-medium w-24 text-right">Total</th>
-                        <th className="px-2 py-2 font-medium w-8"></th>
+                        <th className="px-1.5 py-1 font-medium w-14">Sort</th>
+                        <th className="px-1.5 py-1 font-medium w-48">Type</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Price/Hr</th>
+                        <th className="px-1.5 py-1 font-medium w-20 text-right">Hours</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Sub Total</th>
+                        <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
+                        <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
+                        <th className="px-1.5 py-1 font-medium w-8"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
                       {labour.length === 0 ? (
                         <tr>
                           <td colSpan={10} className="px-4 py-8 text-center text-text-subtle text-sm italic">
@@ -344,15 +344,15 @@ export default function QuoteItemDetail({
                     {labour.length > 0 && (
                       <tfoot className="bg-surface-muted border-t border-border">
                         <tr className="text-[11px] text-text-muted">
-                          <td colSpan={3} className="px-2 py-2 text-right font-medium">
+                          <td colSpan={3} className="px-1.5 py-1 text-right font-medium">
                             Total hrs: {formatNumber(totalLabourHours, 1)}
                           </td>
                           <td></td>
-                          <td className="px-2 py-2 text-right">{formatCurrency(labourSubtotalCost)}</td>
+                          <td className="px-1.5 py-1 text-right">{formatCurrency(labourSubtotalCost)}</td>
                           <td></td>
-                          <td className="px-2 py-2 text-right">{formatCurrency(labourSubtotalIncMup)}</td>
-                          <td className="px-2 py-2 text-right">{formatCurrency(labourGstTotal)}</td>
-                          <td className="px-2 py-2 text-right font-medium text-text">{formatCurrency(labourTotalSum)}</td>
+                          <td className="px-1.5 py-1 text-right">{formatCurrency(labourSubtotalIncMup)}</td>
+                          <td className="px-1.5 py-1 text-right">{formatCurrency(labourGstTotal)}</td>
+                          <td className="px-1.5 py-1 text-right font-medium text-text">{formatCurrency(labourTotalSum)}</td>
                           <td></td>
                         </tr>
                         <tr className="text-[10px] text-text-faint">
@@ -483,20 +483,20 @@ function LineRow({
 
   return (
     <tr className="hover:bg-surface-hover group">
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineNumberField value={line.sort} onSave={(v) => onUpdate(line.id, 'sort', v)} className="font-mono text-text-faint" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineTextField ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="font-medium text-text" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineTextField value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <select
           value={line.supplier_id || ''}
           onChange={(e) => onUpdate(line.id, 'supplier_id', e.target.value || null)}
-          className="w-full px-1 py-1 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted"
+          className="w-full px-1.5 py-0.5 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted"
         >
           <option value="">—</option>
           {suppliers.map((s) => (
@@ -504,23 +504,23 @@ function LineRow({
           ))}
         </select>
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineTextField value={line.item_code || ''} onSave={(v) => onUpdate(line.id, 'item_code', v)} className="text-text-muted text-xs font-mono" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" widthClass="w-full" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineNumberField value={line.qty} onSave={(v) => onUpdate(line.id, 'qty', v)} className="text-right text-text" widthClass="w-full" />
       </td>
-      <td className="px-2 py-1.5 text-right text-xs text-text-muted">{formatCurrency(sub)}</td>
-      <td className="px-1 py-0.5">
+      <td className="px-1.5 py-0.5 text-right text-xs text-text-muted">{formatCurrency(sub)}</td>
+      <td className="px-1 py-0">
         <InlineNumberField value={line.markup_percent} onSave={(v) => onUpdate(line.id, 'markup_percent', v)} className="text-right text-text" widthClass="w-full" suffix="%" />
       </td>
-      <td className="px-2 py-1.5 text-right text-xs text-text-muted">{formatCurrency(subMup)}</td>
-      <td className="px-2 py-1.5 text-right text-xs text-text-faint">{formatCurrency(gst)}</td>
-      <td className="px-2 py-1.5 text-right text-xs font-medium text-text">{formatCurrency(total)}</td>
-      <td className="px-1 py-0.5">
+      <td className="px-1.5 py-0.5 text-right text-xs text-text-muted">{formatCurrency(subMup)}</td>
+      <td className="px-1.5 py-0.5 text-right text-xs text-text-faint">{formatCurrency(gst)}</td>
+      <td className="px-1.5 py-0.5 text-right text-xs font-medium text-text">{formatCurrency(total)}</td>
+      <td className="px-1 py-0">
         <button type="button" onClick={onDelete} className="text-text-faint hover:text-danger" title="Delete">
           <Trash2 size={14} />
         </button>
@@ -560,26 +560,26 @@ function LabourRow({
 
   return (
     <tr className="hover:bg-surface-hover group">
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineNumberField value={labour.sort} onSave={(v) => onUpdate(labour.id, 'sort', v)} className="font-mono text-text-faint" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineTextField ref={typeRef} value={labour.type} onSave={(v) => onUpdate(labour.id, 'type', v)} placeholder="e.g. Cut & Edge" className="text-text" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" widthClass="w-full" />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="px-1 py-0">
         <InlineNumberField value={labour.qty} onSave={(v) => onUpdate(labour.id, 'qty', v)} className="text-right text-text" widthClass="w-full" />
       </td>
-      <td className="px-2 py-1.5 text-right text-xs text-text-muted">{formatCurrency(sub)}</td>
-      <td className="px-1 py-0.5">
+      <td className="px-1.5 py-0.5 text-right text-xs text-text-muted">{formatCurrency(sub)}</td>
+      <td className="px-1 py-0">
         <InlineNumberField value={labour.markup_percent} onSave={(v) => onUpdate(labour.id, 'markup_percent', v)} className="text-right text-text" widthClass="w-full" suffix="%" />
       </td>
-      <td className="px-2 py-1.5 text-right text-xs text-text-muted">{formatCurrency(subMup)}</td>
-      <td className="px-2 py-1.5 text-right text-xs text-text-faint">{formatCurrency(gst)}</td>
-      <td className="px-2 py-1.5 text-right text-xs font-medium text-text">{formatCurrency(total)}</td>
-      <td className="px-1 py-0.5">
+      <td className="px-1.5 py-0.5 text-right text-xs text-text-muted">{formatCurrency(subMup)}</td>
+      <td className="px-1.5 py-0.5 text-right text-xs text-text-faint">{formatCurrency(gst)}</td>
+      <td className="px-1.5 py-0.5 text-right text-xs font-medium text-text">{formatCurrency(total)}</td>
+      <td className="px-1 py-0">
         <button type="button" onClick={onDelete} className="text-text-faint hover:text-danger" title="Delete">
           <Trash2 size={14} />
         </button>
@@ -596,7 +596,7 @@ const InlineTextField = function InlineTextField({
   onSave,
   placeholder,
   className = '',
-  inputClass = 'px-1 py-1',
+  inputClass = 'px-1.5 py-0.5',
 }: {
   ref?: React.RefObject<HTMLInputElement | null>
   value: string
@@ -678,7 +678,7 @@ function InlineNumberField({
             e.currentTarget.blur()
           }
         }}
-        className={`w-full px-1 py-1 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
+        className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
       />
       {suffix && <span className="text-xs text-text-faint ml-0.5">{suffix}</span>}
     </div>

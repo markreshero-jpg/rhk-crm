@@ -86,7 +86,7 @@ export default function ClientForm({
   const showReferredBy = formData.client_source === 'Referral'
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
+    <form onSubmit={handleSubmit} className="space-y-5 max-w-3xl">
       {error && (
         <div className="bg-danger-bg border border-danger-border text-danger px-4 py-3 rounded-md text-sm">
           {error}
