@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
@@ -7,6 +8,14 @@ import JobForm from '@/components/JobForm'
 import { createJob, Job } from '@/lib/jobs'
 
 export default function NewJobPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-sm text-text-subtle">Loading...</div>}>
+      <NewJobPageContent />
+    </Suspense>
+  )
+}
+
+function NewJobPageContent() {
   const searchParams = useSearchParams()
   const prefilledClientId = searchParams.get('client_id')
 
