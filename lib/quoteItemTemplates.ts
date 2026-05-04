@@ -90,35 +90,64 @@ export async function importTemplateToIssue(
 
   if (itemError) throw itemError
 
-  // Fetch the template's lines
-  const { data: templateLines, error: linesError } = await supabase
-    .from('quote_item_line_templates')
-    .select('*')
-    .eq('parent_template_id', templateId)
-    .eq('is_active', true)
-    .order('sort', { ascending: true })
+  // Fetch material lines and labour lines in parallel
+  const [
+    { data: templateLines, error: linesError },
+    { data: labourLines, error: labourError },
+  ] = await Promise.all([
+    supabase
+      .from('quote_item_line_templates')
+      .select('*')
+      .eq('parent_template_id', templateId)
+      .eq('is_active', true)
+      .order('sort', { ascending: true }),
+    supabase
+      .from('labour_line_templates')
+      .select('*')
+      .eq('parent_template_id', templateId)
+      .eq('is_active', true)
+      .order('sort', { ascending: true }),
+  ])
 
   if (linesError) throw linesError
-  if (!templateLines || templateLines.length === 0) return
+  if (labourError) throw labourError
 
-  // Bulk-insert as real quote item lines
-  const { error: insertError } = await supabase
-    .from('quote_item_lines')
-    .insert(
-      templateLines.map((tl) => ({
-        quote_item_id: quoteItem.id,
-        sort: tl.sort,
-        item: tl.item,
-        description: tl.description,
-        written_quote_text: tl.written_quote_text,
-        supplier_id: tl.supplier_id,
-        item_code: tl.item_code,
-        price: tl.price,
-        qty: tl.qty,
-        markup_percent: tl.markup_percent,
-        is_allowance: tl.is_allowance,
-      }))
-    )
+  // Bulk-insert material lines
+  if (templateLines && templateLines.length > 0) {
+    const { error: insertError } = await supabase
+      .from('quote_item_lines')
+      .insert(
+        templateLines.map((tl) => ({
+          quote_item_id: quoteItem.id,
+          sort: tl.sort,
+          item: tl.item,
+          description: tl.description,
+          written_quote_text: tl.written_quote_text,
+          supplier_id: tl.supplier_id,
+          item_code: tl.item_code,
+          price: tl.price,
+          qty: tl.qty,
+          markup_percent: tl.markup_percent,
+          is_allowance: tl.is_allowance,
+        }))
+      )
+    if (insertError) throw insertError
+  }
 
-  if (insertError) throw insertError
+  // Bulk-insert labour lines
+  if (labourLines && labourLines.length > 0) {
+    const { error: insertError } = await supabase
+      .from('quote_item_labour')
+      .insert(
+        labourLines.map((ll) => ({
+          quote_item_id: quoteItem.id,
+          sort: ll.sort,
+          type: ll.type,
+          price: ll.price,
+          qty: ll.qty,
+          markup_percent: ll.markup_percent,
+        }))
+      )
+    if (insertError) throw insertError
+  }
 }
