@@ -16,9 +16,11 @@ import {
   deleteLabourTemplate,
   LabourTemplate,
 } from '@/lib/labourTemplates'
-import { getAllSuppliers, Supplier } from '@/lib/suppliers_old'
+import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { QuoteItemTemplate } from '@/lib/quoteItemTemplates'
 import LabourTypeInput from '@/components/LabourTypeInput'
+import { getSupplierItemByCode } from '@/lib/supplierItems'
+
 
 
 export default function QuoteItemTemplateDetail({
@@ -79,6 +81,30 @@ export default function QuoteItemTemplateDetail({
     await updateLineTemplate(id, { [field]: value })
     await load()
   }
+
+  async function updateLineItemCode(line: LineTemplate, itemCode: string) {
+    const code = itemCode.trim()
+  
+    const supplierItem =
+      (await getSupplierItemByCode(code, line.supplier_id)) ||
+      (await getSupplierItemByCode(code))
+  
+    await updateLineTemplate(line.id, {
+      item_code: code || null,
+      ...(supplierItem
+        ? {
+            supplier_id: supplierItem.supplier_id,
+            item: supplierItem.item,
+            description: supplierItem.description,
+            price: supplierItem.cost,
+          }
+        : {}),
+    })
+  
+    await load()
+  }
+  
+  
 
   async function updateLabour(id: string, field: keyof LabourTemplate, value: string | number) {
     await updateLabourTemplate(id, { [field]: value })
@@ -170,6 +196,7 @@ export default function QuoteItemTemplateDetail({
                       shouldFocus={focusLineId === line.id}
                       onFocused={() => setFocusLineId(null)}
                       onUpdate={updateLine}
+                      onUpdateItemCode={updateLineItemCode}
                       onDelete={() => delLine(line)}
                     />
                   ))}
@@ -228,6 +255,7 @@ function BundledLineRow({
   shouldFocus,
   onFocused,
   onUpdate,
+  onUpdateItemCode,
   onDelete,
 }: {
   line: LineTemplate
@@ -235,8 +263,10 @@ function BundledLineRow({
   shouldFocus: boolean
   onFocused: () => void
   onUpdate: (id: string, field: keyof LineTemplate, value: string | number | boolean | null) => Promise<void>
+  onUpdateItemCode: (line: LineTemplate, itemCode: string) => Promise<void>
   onDelete: () => void
 }) {
+
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (shouldFocus && ref.current) { ref.current.focus(); onFocused() }
@@ -254,10 +284,20 @@ function BundledLineRow({
           className="w-full px-1.5 py-0.5 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted"
         >
           <option value="">—</option>
-          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {suppliers.map((s) => (
+  <option key={s.id} value={s.id}>
+    {s.company_name}
+  </option>
+))}
         </select>
       </td>
-      <td className="px-1 py-0"><InlineTextField value={line.item_code || ''} onSave={(v) => onUpdate(line.id, 'item_code', v)} className="text-text-muted text-xs font-mono" /></td>
+      <td className="px-1 py-0"><InlineTextField
+  value={line.item_code || ''}
+  onSave={(v) => onUpdateItemCode(line, v)}
+  className="text-text-muted text-xs font-mono"
+  alwaysSave
+/>
+</td>
       <td className="px-1 py-0"><InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.qty} onSave={(v) => onUpdate(line.id, 'qty', v)} className="text-right text-text" /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.markup_percent} onSave={(v) => onUpdate(line.id, 'markup_percent', v)} className="text-right text-text" suffix="%" /></td>
@@ -313,6 +353,7 @@ const InlineTextField = function InlineTextField({
   placeholder,
   className = '',
   inputClass = 'px-1.5 py-0.5',
+  alwaysSave = false,
 }: {
   ref?: React.RefObject<HTMLInputElement | null>
   value: string
@@ -320,10 +361,15 @@ const InlineTextField = function InlineTextField({
   placeholder?: string
   className?: string
   inputClass?: string
+  alwaysSave?: boolean
 }) {
+
   const [local, setLocal] = useState(value)
   useEffect(() => { setLocal(value) }, [value])
-  function commit() { if (local !== value) onSave(local) }
+  function commit() {
+    if (alwaysSave || local !== value) onSave(local)
+  }
+  
   return (
     <input
       ref={ref}

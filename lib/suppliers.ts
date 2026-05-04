@@ -25,6 +25,11 @@ export async function getSuppliers(): Promise<Supplier[]> {
   return data ?? []
 }
 
+export async function getAllSuppliers(): Promise<Supplier[]> {
+  return getSuppliers()
+}
+
+
 export async function getSupplierById(id: string): Promise<Supplier | null> {
   const { data, error } = await supabase
     .from('suppliers')
@@ -64,14 +69,4 @@ export async function deleteSupplier(id: string): Promise<void> {
       .delete()
       .eq('id', id)
     if (error) throw error
-  }
-
-  export async function getAllSuppliers(): Promise<Supplier[]> {
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .order('company_name', { ascending: true })
-  
-    if (error) throw error
-    return data ?? []
   }

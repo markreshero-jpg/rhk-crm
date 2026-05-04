@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Plus, Copy, Trash2, ChevronRight, ListOrdered } from 'lucide-react'
+import { Plus, Copy, Trash2, ChevronRight, ListOrdered, FileDown } from 'lucide-react'
 import {
   getIssuesByJobId,
   createIssue,
@@ -18,6 +18,11 @@ import {
   renumberQuoteItems,
   QuoteItem,
 } from '@/lib/quoteItems'
+import {
+  getAllQuoteItemTemplates,
+  importTemplateToIssue,
+  QuoteItemTemplate,
+} from '@/lib/quoteItemTemplates'
 
 const statusStyles: Record<string, string> = {
   'Draft': 'bg-surface-muted text-text-muted border-border',
@@ -135,6 +140,17 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
     }
   }
 
+  async function handleImportTemplate(templateId: string, name: string) {
+    if (!selectedIssueId) return
+    setBusy(true)
+    try {
+      await importTemplateToIssue(templateId, selectedIssueId, name)
+      await loadQuoteItems(selectedIssueId)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (loading) {
     return <p className="text-text-subtle text-sm">Loading...</p>
   }
@@ -216,6 +232,7 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
             onDeleteItem={handleDeleteQuoteItem}
             onRenumber={handleRenumber}
             onDeleteIssue={() => selectedIssueId && handleDeleteIssue(selectedIssueId)}
+            onImportTemplate={handleImportTemplate}
           />
         ) : (
           <div className="text-center py-12 text-text-subtle text-sm">
@@ -236,6 +253,7 @@ function SelectedIssuePanel({
   onDeleteItem,
   onRenumber,
   onDeleteIssue,
+  onImportTemplate,
 }: {
   quoteItems: QuoteItem[]
   focusItemId: string | null
@@ -245,7 +263,10 @@ function SelectedIssuePanel({
   onDeleteItem: (item: QuoteItem) => void
   onRenumber: () => void
   onDeleteIssue: () => void
+  onImportTemplate: (templateId: string, name: string) => Promise<void>
 }) {
+  const [showImportModal, setShowImportModal] = useState(false)
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -260,6 +281,14 @@ function SelectedIssuePanel({
           >
             <Plus size={12} />
             <span>Add Quote Item</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
+          >
+            <FileDown size={12} />
+            <span>Import Template</span>
           </button>
           <button
             type="button"
@@ -281,6 +310,16 @@ function SelectedIssuePanel({
           </button>
         </div>
       </div>
+
+      {showImportModal && (
+        <ImportTemplateModal
+          onImport={async (templateId, name) => {
+            await onImportTemplate(templateId, name)
+            setShowImportModal(false)
+          }}
+          onClose={() => setShowImportModal(false)}
+        />
+      )}
 
       {quoteItems.length === 0 ? (
         <div className="p-12 text-center border border-dashed border-border rounded-md">
@@ -394,6 +433,143 @@ function QuoteItemRow({
         </button>
       </td>
     </tr>
+  )
+}
+
+// ----- Import Template Modal -----
+
+function ImportTemplateModal({
+  onImport,
+  onClose,
+}: {
+  onImport: (templateId: string, name: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [templates, setTemplates] = useState<QuoteItemTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [importName, setImportName] = useState('')
+  const [importing, setImporting] = useState(false)
+
+  useEffect(() => {
+    getAllQuoteItemTemplates().then((data) => {
+      setTemplates(data)
+      setLoadingTemplates(false)
+    })
+  }, [])
+
+  function handleSelect(t: QuoteItemTemplate) {
+    setSelectedId(t.id)
+    setImportName(t.name)
+  }
+
+  async function handleImport() {
+    if (!selectedId || !importName.trim()) return
+    setImporting(true)
+    try {
+      await onImport(selectedId, importName.trim())
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-border rounded-lg shadow-xl w-[480px] max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-medium text-text">Import Template</h3>
+          <p className="text-xs text-text-subtle mt-0.5">
+            Select a template to create a new quote item with its lines pre-filled.
+          </p>
+        </div>
+
+        {/* Template list */}
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+          {loadingTemplates ? (
+            <p className="text-text-subtle text-sm p-4 text-center">Loading templates...</p>
+          ) : templates.length === 0 ? (
+            <p className="text-text-subtle text-sm p-4 text-center italic">
+              No templates available. Create some in the Templates section.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {templates.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(t)}
+                    className={`w-full text-left px-3 py-2.5 rounded-md transition-colors ${
+                      selectedId === t.id
+                        ? 'bg-accent text-accent-text'
+                        : 'hover:bg-surface-hover text-text'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{t.name}</div>
+                    {(t.category || t.description) && (
+                      <div
+                        className={`text-xs mt-0.5 ${
+                          selectedId === t.id ? 'text-accent-text/70' : 'text-text-subtle'
+                        }`}
+                      >
+                        {t.category && <span>{t.category}</span>}
+                        {t.category && t.description && ' — '}
+                        {t.description && <span>{t.description}</span>}
+                      </div>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Rename field — only shown after selection */}
+        {selectedId && (
+          <div className="px-5 py-3 border-t border-border bg-surface-muted">
+            <label className="text-xs text-text-subtle block mb-1">
+              Name for this import
+            </label>
+            <input
+              type="text"
+              value={importName}
+              onChange={(e) => setImportName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleImport()
+                else if (e.key === 'Escape') onClose()
+              }}
+              autoFocus
+              className="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-surface focus:outline-none focus:border-accent"
+            />
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 text-xs text-text-muted hover:text-text"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={!selectedId || !importName.trim() || importing}
+            className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50"
+          >
+            {importing ? 'Importing...' : 'Import'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

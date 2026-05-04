@@ -21,6 +21,27 @@ export async function getSupplierItems(supplierId: string): Promise<SupplierItem
   return data ?? []
 }
 
+export async function getSupplierItemByCode(
+  itemCode: string,
+  supplierId?: string | null
+): Promise<SupplierItem | null> {
+  const code = itemCode.trim()
+  if (!code) return null
+
+  let query = supabase
+    .from('supplier_items')
+    .select('*')
+    .eq('item_code', code)
+
+  if (supplierId) {
+    query = query.eq('supplier_id', supplierId)
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export async function createSupplierItem(
   item: Omit<SupplierItem, 'id' | 'created_at'>
 ): Promise<SupplierItem> {

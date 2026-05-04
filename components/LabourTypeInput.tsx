@@ -3,42 +3,41 @@
 import { useEffect, useState } from 'react'
 import { LABOUR_TYPE_OPTIONS } from '@/lib/labourTypeOptions'
 
-export default function LabourTypeInput({
-  ref,
-  value,
-  onSave,
-  placeholder = 'e.g. Cut & Edge',
-  className = '',
-}: {
-  ref?: React.RefObject<HTMLInputElement | null>
+type LabourTypeInputProps = {
   value: string
   onSave: (value: string) => void
   placeholder?: string
   className?: string
-}) {
+}
+
+export default function LabourTypeInput({
+  value,
+  onSave,
+  placeholder = 'e.g. Cut & Edge',
+  className = '',
+}: LabourTypeInputProps) {
   const [local, setLocal] = useState(value)
 
   useEffect(() => {
     setLocal(value)
   }, [value])
 
-  function commit() {
-    if (local !== value) onSave(local)
+  function commit(nextValue = local) {
+    if (nextValue !== value) onSave(nextValue)
   }
 
-  function selectOption(option: string) {
+  function handleSelect(option: string) {
     setLocal(option)
-    if (option !== value) onSave(option)
+    commit(option)
   }
 
   return (
     <div className="flex w-full items-center">
       <input
-        ref={ref}
         type="text"
         value={local}
         onChange={(e) => setLocal(e.target.value)}
-        onBlur={commit}
+        onBlur={() => commit()}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
           else if (e.key === 'Escape') {
@@ -52,7 +51,7 @@ export default function LabourTypeInput({
       <select
         value=""
         onChange={(e) => {
-          if (e.target.value) selectOption(e.target.value)
+          if (e.target.value) handleSelect(e.target.value)
         }}
         className="w-8 self-stretch bg-transparent border border-transparent rounded-r text-text-muted focus:bg-surface focus:border-accent focus:outline-none"
         aria-label="Choose labour type"
