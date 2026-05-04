@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense } from 'react'
 import Tabs from '@/components/Tabs'
 import { useSearchParams } from 'next/navigation'
 import QuoteItemTemplatesList from '@/components/templates/QuoteItemTemplatesList'
@@ -8,6 +8,14 @@ import StandaloneLineTemplatesList from '@/components/templates/StandaloneLineTe
 import StandaloneLabourTemplatesList from '@/components/templates/StandaloneLabourTemplatesList'
 
 export default function TemplatesPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-sm text-text-subtle">Loading...</div>}>
+      <TemplatesPageContent />
+    </Suspense>
+  )
+}
+
+function TemplatesPageContent() {
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab') || 'bundles'
 
