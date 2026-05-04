@@ -28,15 +28,21 @@ import {
   QuoteItemLabour,
 } from '@/lib/quoteItemLabour'
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
-import { QuoteItemWithContext } from '@/lib/quoteItems'
+import { QuoteItemWithContext, QuoteItem } from '@/lib/quoteItems'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format'
+import LabourTypeInput from '@/components/LabourTypeInput'
+
 
 export default function QuoteItemDetail({
   item,
   onUpdateField,
+  siblings,
+  onNewItem,
 }: {
   item: QuoteItemWithContext
   onUpdateField: (field: 'name' | 'qty' | 'notes', value: string | number) => Promise<void>
+  siblings?: QuoteItem[]
+  onNewItem?: (name: string) => void
 }) {
   const [lines, setLines] = useState<QuoteItemLine[]>([])
   const [labour, setLabour] = useState<QuoteItemLabour[]>([])
@@ -44,6 +50,8 @@ export default function QuoteItemDetail({
   const [loading, setLoading] = useState(true)
   const [focusLineId, setFocusLineId] = useState<string | null>(null)
   const [focusLabourId, setFocusLabourId] = useState<string | null>(null)
+  const [showNewItemModal, setShowNewItemModal] = useState(false)
+  const [newItemName, setNewItemName] = useState('')
 
   const loadAll = useCallback(async () => {
     const [l, la, s] = await Promise.all([
@@ -171,17 +179,6 @@ export default function QuoteItemDetail({
           <div className="text-sm font-medium text-text">Issue {item.issue.issue_number}</div>
         </div>
         <div className="w-px bg-border shrink-0" />
-        <div className="flex-1 px-4 py-3 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Item Name</div>
-          <InlineTextField
-            value={item.name}
-            onSave={(v) => onUpdateField('name', v)}
-            placeholder="Item name (e.g. Kitchen)"
-            className="font-medium text-text"
-            inputClass="px-1 py-0"
-          />
-        </div>
-        <div className="w-px bg-border shrink-0" />
         <div className="px-4 py-3 shrink-0">
           <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Qty</div>
           <InlineNumberField
@@ -192,6 +189,88 @@ export default function QuoteItemDetail({
           />
         </div>
       </div>
+
+      {/* Item tabs */}
+      {siblings && siblings.length > 0 && (
+        <>
+          <div className="flex items-end gap-1 overflow-x-auto">
+            {siblings.map((sibling) => {
+              const isActive = sibling.id === item.id
+              return (
+                <Link
+                  key={sibling.id}
+                  href={`/quote-items/${sibling.id}`}
+                  className={`px-4 py-2 text-sm rounded-t-md border-l border-t border-r whitespace-nowrap transition-colors ${
+                    isActive
+                      ? 'bg-surface border-border text-text font-medium'
+                      : 'bg-surface-muted border-border text-text-muted hover:text-text hover:bg-surface'
+                  }`}
+                >
+                  {sibling.name || <span className="italic text-text-faint">Unnamed</span>}
+                </Link>
+              )
+            })}
+            {onNewItem && (
+              <button
+                type="button"
+                onClick={() => { setNewItemName(''); setShowNewItemModal(true) }}
+                className="flex items-center gap-1 px-3 py-2 text-sm rounded-t-md border-l border-t border-r border-border bg-surface-muted text-text-faint hover:text-text hover:bg-surface transition-colors"
+                title="New item"
+              >
+                <Plus size={13} />
+              </button>
+            )}
+          </div>
+          <div className="border-t border-border mb-4" />
+        </>
+      )}
+
+      {/* New item modal */}
+      {showNewItemModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setShowNewItemModal(false)}
+        >
+          <div
+            className="bg-surface border border-border rounded-lg p-6 w-80 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-medium text-text mb-3">New Quote Item</h3>
+            <input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onNewItem!(newItemName.trim())
+                  setShowNewItemModal(false)
+                } else if (e.key === 'Escape') {
+                  setShowNewItemModal(false)
+                }
+              }}
+              placeholder="e.g. Bathroom"
+              autoFocus
+              className="w-full px-3 py-2 text-sm border border-border rounded-md bg-surface focus:outline-none focus:border-accent mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowNewItemModal(false)}
+                className="px-3 py-1.5 text-xs text-text-muted hover:text-text"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { onNewItem!(newItemName.trim()); setShowNewItemModal(false) }}
+                className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       <div className="mb-4 max-w-2xl">

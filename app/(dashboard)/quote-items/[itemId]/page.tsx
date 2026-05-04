@@ -1,10 +1,15 @@
 'use client'
 
 import { use, useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   getQuoteItemById,
+  getQuoteItemsByIssueId,
+  createQuoteItem,
   updateQuoteItem,
   QuoteItemWithContext,
+  QuoteItem,
 } from '@/lib/quoteItems'
 import QuoteItemDetail from '@/components/QuoteItemDetail'
 
@@ -14,7 +19,9 @@ export default function QuoteItemPage({
   params: Promise<{ itemId: string }>
 }) {
   const { itemId } = use(params)
+  const router = useRouter()
   const [item, setItem] = useState<QuoteItemWithContext | null>(null)
+  const [siblings, setSiblings] = useState<QuoteItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,6 +29,10 @@ export default function QuoteItemPage({
     try {
       const data = await getQuoteItemById(itemId)
       setItem(data)
+      if (data) {
+        const all = await getQuoteItemsByIssueId(data.issue.id)
+        setSiblings(all)
+      }
       setLoading(false)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load'
@@ -37,6 +48,12 @@ export default function QuoteItemPage({
   async function handleUpdateField(field: 'name' | 'qty' | 'notes', value: string | number) {
     await updateQuoteItem(itemId, { [field]: value })
     await loadItem()
+  }
+
+  async function handleNewItem(name: string) {
+    if (!item) return
+    const newItem = await createQuoteItem({ issue_id: item.issue.id, name, qty: 1 })
+    router.push(`/quote-items/${newItem.id}`)
   }
 
   if (loading) {
@@ -63,6 +80,8 @@ export default function QuoteItemPage({
       <QuoteItemDetail
         item={item}
         onUpdateField={handleUpdateField}
+        siblings={siblings}
+        onNewItem={handleNewItem}
       />
     </div>
   )
