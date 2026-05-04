@@ -52,6 +52,8 @@ export default function QuoteItemDetail({
   const [focusLabourId, setFocusLabourId] = useState<string | null>(null)
   const [showNewItemModal, setShowNewItemModal] = useState(false)
   const [newItemName, setNewItemName] = useState('')
+  const [writtenQuoteView, setWrittenQuoteView] = useState(false)
+  const [filterNoEntries, setFilterNoEntries] = useState(false)
 
   const loadAll = useCallback(async () => {
     const [l, la, s] = await Promise.all([
@@ -151,6 +153,8 @@ export default function QuoteItemDetail({
   const linesSubtotalIncMup = lines.reduce((sum, l) => sum + lineSubtotalWithMarkup(l), 0)
   const linesGst = lines.reduce((sum, l) => sum + lineGst(l), 0)
   const linesTotal = lines.reduce((sum, l) => sum + lineTotal(l), 0)
+
+  const displayLines = filterNoEntries ? lines.filter((l) => (l.qty || 0) !== 0) : lines
 
   // Labour summary row
   const labourSubtotalCost = labour.reduce((sum, l) => sum + labourSubtotal(l), 0)
@@ -310,6 +314,28 @@ export default function QuoteItemDetail({
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    onClick={() => setWrittenQuoteView((v) => !v)}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                      writtenQuoteView
+                        ? 'bg-accent text-accent-text border-accent hover:bg-accent-hover'
+                        : 'text-text-muted bg-surface border-border-strong hover:bg-surface-hover'
+                    }`}
+                  >
+                    {writtenQuoteView ? 'Detail View' : 'Written Quote View'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterNoEntries((v) => !v)}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                      filterNoEntries
+                        ? 'bg-accent text-accent-text border-accent hover:bg-accent-hover'
+                        : 'text-text-muted bg-surface border-border-strong hover:bg-surface-hover'
+                    }`}
+                  >
+                    {filterNoEntries ? 'Show All' : 'Filter No Entries'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleAddLine}
                     className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover"
                   >
@@ -327,33 +353,44 @@ export default function QuoteItemDetail({
               </div>
 
               <div className="border border-border rounded-md overflow-x-auto">
-                <table className="w-full min-w-[1100px]">
+                <table className={`w-full ${writtenQuoteView ? 'min-w-[600px]' : 'min-w-[1100px]'}`}>
                   <thead className="bg-surface-muted border-b border-border">
                     <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
-                      <th className="px-1.5 py-1 font-medium w-14">Sort</th>
-                      <th className="px-1.5 py-1 font-medium w-40">Item</th>
-                      <th className="px-1.5 py-1 font-medium">Description</th>
-                      <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
-                      <th className="px-1.5 py-1 font-medium w-24">Code</th>
-                      <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
-                      <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
-                      <th className="px-1.5 py-1 font-medium w-20 text-right">Sub Total</th>
-                      <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
-                      <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
-                      <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
-                      <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
-                      <th className="px-1.5 py-1 font-medium w-8"></th>
+                      {writtenQuoteView ? (
+                        <>
+                          <th className="px-1.5 py-1 font-medium w-40">Item</th>
+                          <th className="px-1.5 py-1 font-medium w-56">Description</th>
+                          <th className="px-1.5 py-1 font-medium">Written Quote</th>
+                          <th className="px-1.5 py-1 font-medium w-8"></th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-1.5 py-1 font-medium w-14">Sort</th>
+                          <th className="px-1.5 py-1 font-medium w-40">Item</th>
+                          <th className="px-1.5 py-1 font-medium">Description</th>
+                          <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
+                          <th className="px-1.5 py-1 font-medium w-24">Code</th>
+                          <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
+                          <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
+                          <th className="px-1.5 py-1 font-medium w-20 text-right">Sub Total</th>
+                          <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                          <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
+                          <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
+                          <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
+                          <th className="px-1.5 py-1 font-medium w-8"></th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
-                    {lines.length === 0 ? (
+                    {displayLines.length === 0 ? (
                       <tr>
-                        <td colSpan={13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
-                          No material lines yet. Click &quot;New Line&quot; to add one.
+                        <td colSpan={writtenQuoteView ? 4 : 13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
+                          {lines.length === 0 ? 'No material lines yet. Click “New Line” to add one.' : 'No lines match the current filter.'}
                         </td>
                       </tr>
                     ) : (
-                      lines.map((line) => (
+                      displayLines.map((line) => (
                         <LineRow
                           key={line.id}
                           line={line}
@@ -362,11 +399,12 @@ export default function QuoteItemDetail({
                           onFocused={() => setFocusLineId(null)}
                           onUpdate={handleUpdateLine}
                           onDelete={() => handleDeleteLine(line)}
+                          writtenQuoteView={writtenQuoteView}
                         />
                       ))
                     )}
                   </tbody>
-                  {lines.length > 0 && (
+                  {lines.length > 0 && !writtenQuoteView && (
                     <tfoot className="bg-surface-muted border-t border-border">
                       <tr className="text-[11px] text-text-muted">
                         <td colSpan={7} className="px-1.5 py-1 text-right font-medium">Totals:</td>
@@ -519,6 +557,7 @@ function LineRow({
   onFocused,
   onUpdate,
   onDelete,
+  writtenQuoteView,
 }: {
   line: QuoteItemLine
   suppliers: Supplier[]
@@ -526,6 +565,7 @@ function LineRow({
   onFocused: () => void
   onUpdate: (id: string, field: keyof QuoteItemLine, value: string | number | boolean | null) => Promise<void>
   onDelete: () => void
+  writtenQuoteView: boolean
 }) {
   const itemRef = useRef<HTMLInputElement>(null)
 
@@ -540,6 +580,27 @@ function LineRow({
   const subMup = lineSubtotalWithMarkup(line)
   const gst = lineGst(line)
   const total = lineTotal(line)
+
+  if (writtenQuoteView) {
+    return (
+      <tr className="hover:bg-surface-hover group">
+        <td className="px-1 py-0.5">
+          <InlineTextField ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="font-medium text-text" />
+        </td>
+        <td className="px-1 py-0.5">
+          <InlineTextField value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
+        </td>
+        <td className="px-1 py-0.5">
+          <InlineTextArea value={line.written_quote_text || ''} onSave={(v) => onUpdate(line.id, 'written_quote_text', v)} placeholder="Written quote brief..." className="text-text-muted" />
+        </td>
+        <td className="px-1 py-0.5">
+          <button type="button" onClick={onDelete} className="text-text-faint hover:text-danger" title="Delete">
+            <Trash2 size={14} />
+          </button>
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <tr className="hover:bg-surface-hover group">
@@ -691,6 +752,35 @@ const InlineTextField = function InlineTextField({
       }}
       placeholder={placeholder}
       className={`w-full text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${inputClass} ${className}`}
+    />
+  )
+}
+
+function InlineTextArea({
+  value,
+  onSave,
+  placeholder,
+  className = '',
+}: {
+  value: string
+  onSave: (value: string) => void
+  placeholder?: string
+  className?: string
+}) {
+  const [local, setLocal] = useState(value)
+  useEffect(() => { setLocal(value) }, [value])
+  function commit() { if (local !== value) onSave(local) }
+  return (
+    <textarea
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') { setLocal(value); e.currentTarget.blur() }
+      }}
+      placeholder={placeholder}
+      rows={2}
+      className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none resize-none ${className}`}
     />
   )
 }
