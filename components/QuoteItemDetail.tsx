@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ListOrdered, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/lib/quoteItemLabour'
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { QuoteItemWithContext, QuoteItem } from '@/lib/quoteItems'
+import { getAllQuoteItemTemplates, importTemplateToIssue, QuoteItemTemplate } from '@/lib/quoteItemTemplates'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format'
 import LabourTypeInput from '@/components/LabourTypeInput'
 
@@ -48,10 +50,10 @@ export default function QuoteItemDetail({
   const [labour, setLabour] = useState<QuoteItemLabour[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
   const [focusLineId, setFocusLineId] = useState<string | null>(null)
   const [focusLabourId, setFocusLabourId] = useState<string | null>(null)
-  const [showNewItemModal, setShowNewItemModal] = useState(false)
-  const [newItemName, setNewItemName] = useState('')
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [writtenQuoteView, setWrittenQuoteView] = useState(false)
   const [filterNoEntries, setFilterNoEntries] = useState(false)
 
@@ -217,7 +219,7 @@ export default function QuoteItemDetail({
             {onNewItem && (
               <button
                 type="button"
-                onClick={() => { setNewItemName(''); setShowNewItemModal(true) }}
+                onClick={() => setShowTemplatePicker(true)}
                 className="flex items-center gap-1 px-3 py-2 text-sm rounded-t-md border-l border-t border-r border-border bg-surface-muted text-text-faint hover:text-text hover:bg-surface transition-colors"
                 title="New item"
               >
@@ -229,51 +231,20 @@ export default function QuoteItemDetail({
         </>
       )}
 
-      {/* New item modal */}
-      {showNewItemModal && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowNewItemModal(false)}
-        >
-          <div
-            className="bg-surface border border-border rounded-lg p-6 w-80 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-medium text-text mb-3">New Quote Item</h3>
-            <input
-              type="text"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  onNewItem!(newItemName.trim())
-                  setShowNewItemModal(false)
-                } else if (e.key === 'Escape') {
-                  setShowNewItemModal(false)
-                }
-              }}
-              placeholder="e.g. Bathroom"
-              autoFocus
-              className="w-full px-3 py-2 text-sm border border-border rounded-md bg-surface focus:outline-none focus:border-accent mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowNewItemModal(false)}
-                className="px-3 py-1.5 text-xs text-text-muted hover:text-text"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => { onNewItem!(newItemName.trim()); setShowNewItemModal(false) }}
-                className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover"
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Template picker for new room */}
+      {showTemplatePicker && (
+        <RoomTemplatePicker
+          onImport={async (templateId, name) => {
+            const newId = await importTemplateToIssue(templateId, item.issue.id, name)
+            setShowTemplatePicker(false)
+            router.push(`/quote-items/${newId}`)
+          }}
+          onCreateBlank={() => {
+            setShowTemplatePicker(false)
+            onNewItem?.('')
+          }}
+          onClose={() => setShowTemplatePicker(false)}
+        />
       )}
 
       {/* Notes */}
@@ -353,21 +324,16 @@ export default function QuoteItemDetail({
               </div>
 
               <div className="border border-border rounded-md overflow-x-auto">
-                <table className={`w-full ${writtenQuoteView ? 'min-w-[600px]' : 'min-w-[1100px]'}`}>
+                <table className="w-full min-w-[1100px]">
                   <thead className="bg-surface-muted border-b border-border">
                     <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
+                      <th className="px-1.5 py-1 font-medium w-14">Sort</th>
+                      <th className="px-1.5 py-1 font-medium w-40">Item</th>
+                      <th className="px-1.5 py-1 font-medium w-56">Description</th>
                       {writtenQuoteView ? (
-                        <>
-                          <th className="px-1.5 py-1 font-medium w-40">Item</th>
-                          <th className="px-1.5 py-1 font-medium w-56">Description</th>
-                          <th className="px-1.5 py-1 font-medium">Written Quote</th>
-                          <th className="px-1.5 py-1 font-medium w-8"></th>
-                        </>
+                        <th className="px-1.5 py-1 font-medium">Written Quote</th>
                       ) : (
                         <>
-                          <th className="px-1.5 py-1 font-medium w-14">Sort</th>
-                          <th className="px-1.5 py-1 font-medium w-40">Item</th>
-                          <th className="px-1.5 py-1 font-medium">Description</th>
                           <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
                           <th className="px-1.5 py-1 font-medium w-24">Code</th>
                           <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
@@ -377,15 +343,15 @@ export default function QuoteItemDetail({
                           <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
                           <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
                           <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
-                          <th className="px-1.5 py-1 font-medium w-8"></th>
                         </>
                       )}
+                      <th className="px-1.5 py-1 font-medium w-8"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
                     {displayLines.length === 0 ? (
                       <tr>
-                        <td colSpan={writtenQuoteView ? 4 : 13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
+                        <td colSpan={writtenQuoteView ? 5 : 13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
                           {lines.length === 0 ? 'No material lines yet. Click “New Line” to add one.' : 'No lines match the current filter.'}
                         </td>
                       </tr>
@@ -584,16 +550,19 @@ function LineRow({
   if (writtenQuoteView) {
     return (
       <tr className="hover:bg-surface-hover group">
-        <td className="px-1 py-0.5">
+        <td className="px-1 py-0">
+          <InlineNumberField value={line.sort} onSave={(v) => onUpdate(line.id, 'sort', v)} className="font-mono text-text-faint" />
+        </td>
+        <td className="px-1 py-0">
           <InlineTextField ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="font-medium text-text" />
         </td>
-        <td className="px-1 py-0.5">
+        <td className="px-1 py-0">
           <InlineTextField value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
         </td>
-        <td className="px-1 py-0.5">
-          <InlineTextArea value={line.written_quote_text || ''} onSave={(v) => onUpdate(line.id, 'written_quote_text', v)} placeholder="Written quote brief..." className="text-text-muted" />
+        <td className="px-1 py-0">
+          <InlineTextField value={line.written_quote_text || ''} onSave={(v) => onUpdate(line.id, 'written_quote_text', v)} placeholder="Written quote brief..." className="text-text-muted" />
         </td>
-        <td className="px-1 py-0.5">
+        <td className="px-1 py-0">
           <button type="button" onClick={onDelete} className="text-text-faint hover:text-danger" title="Delete">
             <Trash2 size={14} />
           </button>
@@ -709,6 +678,128 @@ function LabourRow({
   )
 }
 
+// ===== Room template picker modal =====
+
+function RoomTemplatePicker({
+  onImport,
+  onCreateBlank,
+  onClose,
+}: {
+  onImport: (templateId: string, name: string) => Promise<void>
+  onCreateBlank: () => void
+  onClose: () => void
+}) {
+  const [templates, setTemplates] = useState<QuoteItemTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [importName, setImportName] = useState('')
+  const [importing, setImporting] = useState(false)
+
+  useEffect(() => {
+    getAllQuoteItemTemplates().then((data) => {
+      setTemplates(data)
+      setLoadingTemplates(false)
+    })
+  }, [])
+
+  function handleSelect(t: QuoteItemTemplate) {
+    setSelectedId(t.id)
+    setImportName(t.name)
+  }
+
+  async function handleImport() {
+    if (!selectedId || !importName.trim()) return
+    setImporting(true)
+    try {
+      await onImport(selectedId, importName.trim())
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-lg shadow-xl w-[480px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-medium text-text">New Room</h3>
+          <p className="text-xs text-text-subtle mt-0.5">Pick a template or start with a blank room.</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+          {loadingTemplates ? (
+            <p className="text-text-subtle text-sm p-4 text-center">Loading templates...</p>
+          ) : templates.length === 0 ? (
+            <p className="text-text-subtle text-sm p-4 text-center italic">No templates available.</p>
+          ) : (
+            <ul className="space-y-1">
+              {templates.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(t)}
+                    className={`w-full text-left px-3 py-2.5 rounded-md transition-colors ${
+                      selectedId === t.id ? 'bg-accent text-accent-text' : 'hover:bg-surface-hover text-text'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{t.name}</div>
+                    {(t.category || t.description) && (
+                      <div className={`text-xs mt-0.5 ${selectedId === t.id ? 'text-accent-text/70' : 'text-text-subtle'}`}>
+                        {t.category && <span>{t.category}</span>}
+                        {t.category && t.description && ' — '}
+                        {t.description && <span>{t.description}</span>}
+                      </div>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {selectedId && (
+          <div className="px-5 py-3 border-t border-border bg-surface-muted">
+            <label className="text-xs text-text-subtle block mb-1">Name for this room</label>
+            <input
+              type="text"
+              value={importName}
+              onChange={(e) => setImportName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleImport()
+                else if (e.key === 'Escape') onClose()
+              }}
+              autoFocus
+              className="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-surface focus:outline-none focus:border-accent"
+            />
+          </div>
+        )}
+
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onCreateBlank}
+            className="px-3 py-1.5 text-xs text-text-muted border border-border-strong rounded-md hover:bg-surface-hover"
+          >
+            Create blank
+          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={!selectedId || !importName.trim() || importing}
+              className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50"
+            >
+              {importing ? 'Importing...' : 'Import'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ===== Inline editing primitives =====
 
 const InlineTextField = function InlineTextField({
@@ -807,7 +898,13 @@ function InlineNumberField({
   }, [value, decimals])
 
   function commit() {
-    const n = parseFloat(local)
+    const trimmed = local.trim()
+    if (trimmed === '') {
+      if (value !== 0) onSave(0)
+      setLocal(decimals != null ? (0).toFixed(decimals) : '0')
+      return
+    }
+    const n = parseFloat(trimmed)
     if (isNaN(n)) {
       setLocal(decimals != null ? value.toFixed(decimals) : String(value))
       return
@@ -818,8 +915,8 @@ function InlineNumberField({
   return (
     <div className={`flex items-baseline ${widthClass}`}>
       <input
-        type="number"
-        step="any"
+        type="text"
+        inputMode="decimal"
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={commit}

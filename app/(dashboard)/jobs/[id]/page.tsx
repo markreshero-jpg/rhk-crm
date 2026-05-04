@@ -86,9 +86,10 @@ export default function JobWorkspacePage({
       </p>
 
       <Tabs tabs={tabs} activeTab={activeTab}>
-        {activeTab === 'details' && (
+        <div className={activeTab !== 'details' ? 'hidden' : ''}>
           <JobForm
             initialData={job}
+            jobId={id}
             onSubmit={async (data) => {
               await updateJob(id, data)
             }}
@@ -97,7 +98,7 @@ export default function JobWorkspacePage({
             }}
             submitLabel="Save Changes"
           />
-        )}
+        </div>
 
         {activeTab === 'quote' && <JobQuoteTab jobId={id} />}
 

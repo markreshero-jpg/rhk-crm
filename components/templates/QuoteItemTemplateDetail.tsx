@@ -36,6 +36,8 @@ export default function QuoteItemTemplateDetail({
   const [loading, setLoading] = useState(true)
   const [focusLineId, setFocusLineId] = useState<string | null>(null)
   const [focusLabourId, setFocusLabourId] = useState<string | null>(null)
+  const [writtenQuoteView, setWrittenQuoteView] = useState(false)
+  const [filterNoEntries, setFilterNoEntries] = useState(false)
 
   const load = useCallback(async () => {
     const [l, la, s] = await Promise.all([
@@ -125,34 +127,37 @@ export default function QuoteItemTemplateDetail({
 
   return (
     <div>
-      <h2 className="text-4xl font-medium text-text tracking-tight mb-2">
-        <InlineTextField
-          value={template.name}
-          onSave={(v) => onUpdate('name', v)}
-          placeholder="Template name"
-          className="text-4xl font-medium"
-          inputClass="px-2 py-1"
-        />
-      </h2>
-      <div className="grid grid-cols-12 gap-3 mb-6">
-        <div className="col-span-3">
-          <label className="block text-xs font-medium text-text-muted mb-1">Category</label>
+      <div className="flex items-stretch mb-4 border border-border rounded-md bg-surface-muted overflow-hidden">
+        <div className="flex-1 px-4 py-3 min-w-0">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Template Name</div>
+          <InlineTextField
+            value={template.name}
+            onSave={(v) => onUpdate('name', v)}
+            placeholder="Template name"
+            className="text-sm font-medium text-text"
+            inputClass="px-1 py-0"
+          />
+        </div>
+        <div className="w-px bg-border shrink-0" />
+        <div className="w-44 shrink-0 px-4 py-3">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Category</div>
           <InlineTextField
             value={template.category || ''}
             onSave={(v) => onUpdate('category', v || null)}
             placeholder="e.g. Kitchen"
-            className="text-sm"
-            inputClass="px-2 py-1.5 border border-border-strong"
+            className="text-sm text-text"
+            inputClass="px-1 py-0"
           />
         </div>
-        <div className="col-span-9">
-          <label className="block text-xs font-medium text-text-muted mb-1">Description</label>
+        <div className="w-px bg-border shrink-0" />
+        <div className="flex-1 px-4 py-3 min-w-0">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Description</div>
           <InlineTextField
             value={template.description || ''}
             onSave={(v) => onUpdate('description', v || null)}
             placeholder="What this template covers..."
-            className="text-sm"
-            inputClass="px-2 py-1.5 border border-border-strong"
+            className="text-sm text-text-muted"
+            inputClass="px-1 py-0"
           />
         </div>
       </div>
@@ -166,9 +171,31 @@ export default function QuoteItemTemplateDetail({
               <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
                 Material Lines
               </h3>
-              <button onClick={handleAddLine} className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover">
-                <Plus size={12} /> New Line
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setWrittenQuoteView((v) => !v)}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                    writtenQuoteView
+                      ? 'bg-accent text-accent-text border-accent hover:bg-accent-hover'
+                      : 'text-text-muted bg-surface border-border-strong hover:bg-surface-hover'
+                  }`}
+                >
+                  {writtenQuoteView ? 'Detail View' : 'Written Quote View'}
+                </button>
+                <button
+                  onClick={() => setFilterNoEntries((v) => !v)}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                    filterNoEntries
+                      ? 'bg-accent text-accent-text border-accent hover:bg-accent-hover'
+                      : 'text-text-muted bg-surface border-border-strong hover:bg-surface-hover'
+                  }`}
+                >
+                  {filterNoEntries ? 'Show All' : 'Filter No Entries'}
+                </button>
+                <button onClick={handleAddLine} className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover">
+                  <Plus size={12} /> New Line
+                </button>
+              </div>
             </div>
             <div className="border border-border rounded-md overflow-x-auto">
               <table className="w-full min-w-[1100px]">
@@ -176,19 +203,27 @@ export default function QuoteItemTemplateDetail({
                   <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
                     <th className="px-1.5 py-1 font-medium w-14">Sort</th>
                     <th className="px-1.5 py-1 font-medium w-40">Item</th>
-                    <th className="px-1.5 py-1 font-medium">Description</th>
-                    <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
-                    <th className="px-1.5 py-1 font-medium w-24">Code</th>
-                    <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
-                    <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
-                    <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                    <th className="px-1.5 py-1 font-medium w-56">Description</th>
+                    {writtenQuoteView ? (
+                      <th className="px-1.5 py-1 font-medium">Written Quote</th>
+                    ) : (
+                      <>
+                        <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
+                        <th className="px-1.5 py-1 font-medium w-24">Code</th>
+                        <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
+                        <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
+                        <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                      </>
+                    )}
                     <th className="px-1.5 py-1 font-medium w-8"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
-                  {lines.length === 0 ? (
-                    <tr><td colSpan={9} className="px-4 py-6 text-center text-text-subtle text-sm italic">No lines yet.</td></tr>
-                  ) : lines.map((line) => (
+                  {(filterNoEntries ? lines.filter((l) => (l.qty || 0) !== 0) : lines).length === 0 ? (
+                    <tr><td colSpan={writtenQuoteView ? 5 : 9} className="px-4 py-6 text-center text-text-subtle text-sm italic">
+                      {lines.length === 0 ? 'No lines yet.' : 'No lines match the current filter.'}
+                    </td></tr>
+                  ) : (filterNoEntries ? lines.filter((l) => (l.qty || 0) !== 0) : lines).map((line) => (
                     <BundledLineRow
                       key={line.id}
                       line={line}
@@ -198,6 +233,7 @@ export default function QuoteItemTemplateDetail({
                       onUpdate={updateLine}
                       onUpdateItemCode={updateLineItemCode}
                       onDelete={() => delLine(line)}
+                      writtenQuoteView={writtenQuoteView}
                     />
                   ))}
                 </tbody>
@@ -257,6 +293,7 @@ function BundledLineRow({
   onUpdate,
   onUpdateItemCode,
   onDelete,
+  writtenQuoteView,
 }: {
   line: LineTemplate
   suppliers: Supplier[]
@@ -265,12 +302,28 @@ function BundledLineRow({
   onUpdate: (id: string, field: keyof LineTemplate, value: string | number | boolean | null) => Promise<void>
   onUpdateItemCode: (line: LineTemplate, itemCode: string) => Promise<void>
   onDelete: () => void
+  writtenQuoteView: boolean
 }) {
-
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (shouldFocus && ref.current) { ref.current.focus(); onFocused() }
   }, [shouldFocus, onFocused])
+
+  if (writtenQuoteView) {
+    return (
+      <tr className="hover:bg-surface-hover group">
+        <td className="px-1 py-0"><InlineNumberField value={line.sort} onSave={(v) => onUpdate(line.id, 'sort', v)} className="font-mono text-text-faint" /></td>
+        <td className="px-1 py-0"><InlineTextField ref={ref} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="font-medium text-text" /></td>
+        <td className="px-1 py-0"><InlineTextField value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" /></td>
+        <td className="px-1 py-0"><InlineTextField value={line.written_quote_text || ''} onSave={(v) => onUpdate(line.id, 'written_quote_text', v)} placeholder="Written quote brief..." className="text-text-muted" /></td>
+        <td className="px-1 py-0">
+          <button onClick={onDelete} className="text-text-faint hover:text-danger" title="Delete">
+            <Trash2 size={14} />
+          </button>
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <tr className="hover:bg-surface-hover group">
@@ -285,19 +338,11 @@ function BundledLineRow({
         >
           <option value="">—</option>
           {suppliers.map((s) => (
-  <option key={s.id} value={s.id}>
-    {s.company_name}
-  </option>
-))}
+            <option key={s.id} value={s.id}>{s.company_name}</option>
+          ))}
         </select>
       </td>
-      <td className="px-1 py-0"><InlineTextField
-  value={line.item_code || ''}
-  onSave={(v) => onUpdateItemCode(line, v)}
-  className="text-text-muted text-xs font-mono"
-  alwaysSave
-/>
-</td>
+      <td className="px-1 py-0"><InlineTextField value={line.item_code || ''} onSave={(v) => onUpdateItemCode(line, v)} className="text-text-muted text-xs font-mono" alwaysSave /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.qty} onSave={(v) => onUpdate(line.id, 'qty', v)} className="text-right text-text" /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.markup_percent} onSave={(v) => onUpdate(line.id, 'markup_percent', v)} className="text-right text-text" suffix="%" /></td>

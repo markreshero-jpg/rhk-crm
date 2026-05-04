@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Plus, Copy, Trash2, ChevronRight, ListOrdered, FileDown } from 'lucide-react'
+import { Plus, Copy, Trash2, ChevronRight, ListOrdered, FileText, ExternalLink } from 'lucide-react'
 import {
   getIssuesByJobId,
   createIssue,
@@ -12,18 +12,23 @@ import {
   Issue,
 } from '@/lib/issues'
 import {
-  getQuoteItemsByIssueId,
+  getQuoteItemsWithTotals,
   createQuoteItem,
   updateQuoteItem,
   deleteQuoteItem,
   renumberQuoteItems,
   QuoteItem,
+  QuoteItemWithTotal,
 } from '@/lib/quoteItems'
 import {
   getAllQuoteItemTemplates,
   importTemplateToIssue,
   QuoteItemTemplate,
 } from '@/lib/quoteItemTemplates'
+import {
+  getAllTermsTemplates,
+  TermsTemplate,
+} from '@/lib/termsTemplates'
 
 const statusStyles: Record<string, string> = {
   'Draft': 'bg-surface-muted text-text-muted border-border',
@@ -36,7 +41,7 @@ const statusStyles: Record<string, string> = {
 export default function JobQuoteTab({ jobId }: { jobId: string }) {
   const [issues, setIssues] = useState<Issue[]>([])
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null)
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([])
+  const [quoteItems, setQuoteItems] = useState<QuoteItemWithTotal[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   // Track which newly-created row should auto-focus its name field
@@ -52,7 +57,7 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
   }, [jobId, selectedIssueId])
 
   const loadQuoteItems = useCallback(async (issueId: string) => {
-    const data = await getQuoteItemsByIssueId(issueId)
+    const data = await getQuoteItemsWithTotals(issueId)
     setQuoteItems(data)
   }, [])
 
@@ -157,6 +162,12 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
     }
   }
 
+  async function handleUpdateTerms(termsText: string) {
+    if (!selectedIssueId) return
+    await updateIssue(selectedIssueId, { terms_text: termsText || null })
+    await loadIssues()
+  }
+
   if (loading) {
     return <p className="text-text-subtle text-sm">Loading...</p>
   }
@@ -238,6 +249,7 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
       <div className="flex-1 min-w-0">
         {selectedIssueId ? (
           <SelectedIssuePanel
+            issue={issues.find((i) => i.id === selectedIssueId)!}
             quoteItems={quoteItems}
             focusItemId={focusItemId}
             onClearFocus={() => setFocusItemId(null)}
@@ -247,6 +259,7 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
             onRenumber={handleRenumber}
             onDeleteIssue={() => selectedIssueId && handleDeleteIssue(selectedIssueId)}
             onImportTemplate={handleImportTemplate}
+            onUpdateTerms={handleUpdateTerms}
           />
         ) : (
           <div className="text-center py-12 text-text-subtle text-sm">
@@ -259,6 +272,7 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
 }
 
 function SelectedIssuePanel({
+  issue,
   quoteItems,
   focusItemId,
   onClearFocus,
@@ -268,8 +282,10 @@ function SelectedIssuePanel({
   onRenumber,
   onDeleteIssue,
   onImportTemplate,
+  onUpdateTerms,
 }: {
-  quoteItems: QuoteItem[]
+  issue: Issue
+  quoteItems: QuoteItemWithTotal[]
   focusItemId: string | null
   onClearFocus: () => void
   onAddItem: () => void
@@ -278,8 +294,10 @@ function SelectedIssuePanel({
   onRenumber: () => void
   onDeleteIssue: () => void
   onImportTemplate: (templateId: string, name: string) => Promise<void>
+  onUpdateTerms: (text: string) => Promise<void>
 }) {
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
 
   return (
     <div>
@@ -288,21 +306,23 @@ function SelectedIssuePanel({
           Quote Items
         </h3>
         <div className="flex gap-2">
+          <a
+            href={`/print/quote/${issue.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
+            title="Open printable written quote"
+          >
+            <ExternalLink size={12} />
+            <span>Written Quote</span>
+          </a>
           <button
             type="button"
-            onClick={onAddItem}
+            onClick={() => setShowImportModal(true)}
             className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors"
           >
             <Plus size={12} />
             <span>Add Quote Item</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
-          >
-            <FileDown size={12} />
-            <span>Import Template</span>
           </button>
           <button
             type="button"
@@ -331,6 +351,10 @@ function SelectedIssuePanel({
             await onImportTemplate(templateId, name)
             setShowImportModal(false)
           }}
+          onCreateBlank={async () => {
+            await onAddItem()
+            setShowImportModal(false)
+          }}
           onClose={() => setShowImportModal(false)}
         />
       )}
@@ -342,38 +366,95 @@ function SelectedIssuePanel({
           </p>
           <button
             type="button"
-            onClick={onAddItem}
+            onClick={() => setShowImportModal(true)}
             className="inline-flex items-center gap-2 mt-4 text-sm text-text underline hover:no-underline"
           >
             Add the first item
           </button>
         </div>
-      ) : (
-        <div className="border border-border rounded-md overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
-                <th className="px-4 py-2.5 font-medium w-20">Sort</th>
-                <th className="px-4 py-2.5 font-medium">Item</th>
-                <th className="px-4 py-2.5 font-medium w-24">Qty</th>
-                <th className="px-4 py-2.5 font-medium w-8"></th>
-                <th className="px-4 py-2.5 font-medium w-8"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {quoteItems.map((item) => (
-                <QuoteItemRow
-                  key={item.id}
-                  item={item}
-                  shouldFocus={focusItemId === item.id}
-                  onFocused={onClearFocus}
-                  onUpdateField={onUpdateField}
-                  onDelete={() => onDeleteItem(item)}
-                />
-              ))}
-            </tbody>
-          </table>
+      ) : (() => {
+        const grandTotal   = quoteItems.reduce((s, i) => s + i.total_ex_gst, 0)
+        const gst          = grandTotal * 0.1
+        const totalIncGst  = grandTotal + gst
+        const fmt = (n: number) => '$' + Math.round(n).toLocaleString('en-AU')
+
+        return (
+          <div className="border border-border rounded-md overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-surface-muted border-b border-border">
+                <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
+                  <th className="px-4 py-2.5 font-medium w-20">Sort</th>
+                  <th className="px-4 py-2.5 font-medium">Item</th>
+                  <th className="px-4 py-2.5 font-medium w-20">Qty</th>
+                  <th className="px-4 py-2.5 font-medium w-36 text-right">Total (ex GST)</th>
+                  <th className="px-4 py-2.5 font-medium w-8"></th>
+                  <th className="px-4 py-2.5 font-medium w-8"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {quoteItems.map((item) => (
+                  <QuoteItemRow
+                    key={item.id}
+                    item={item}
+                    shouldFocus={focusItemId === item.id}
+                    onFocused={onClearFocus}
+                    onUpdateField={onUpdateField}
+                    onDelete={() => onDeleteItem(item)}
+                  />
+                ))}
+              </tbody>
+              <tfoot className="bg-surface-muted border-t border-border-strong">
+                <tr>
+                  <td colSpan={3} className="px-4 py-2.5 text-xs text-text-subtle">Subtotal</td>
+                  <td className="px-4 py-2.5 text-sm text-right font-medium text-text tabular-nums">{fmt(grandTotal)}</td>
+                  <td colSpan={2} />
+                </tr>
+                <tr>
+                  <td colSpan={3} className="px-4 py-1.5 text-xs text-text-subtle">GST (10%)</td>
+                  <td className="px-4 py-1.5 text-sm text-right text-text-muted tabular-nums">{fmt(gst)}</td>
+                  <td colSpan={2} />
+                </tr>
+                <tr className="border-t border-border">
+                  <td colSpan={3} className="px-4 py-2.5 text-xs font-semibold text-text uppercase tracking-wide">Total inc GST</td>
+                  <td className="px-4 py-2.5 text-base text-right font-semibold text-text tabular-nums">{fmt(totalIncGst)}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )
+      })()}
+
+      {/* Terms & Conditions */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
+            Terms &amp; Conditions
+          </h3>
+          <button
+            type="button"
+            onClick={() => setShowTermsModal(true)}
+            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
+          >
+            <FileText size={12} />
+            <span>Import clauses</span>
+          </button>
         </div>
+        <TermsField
+          value={issue.terms_text || ''}
+          onSave={onUpdateTerms}
+        />
+      </div>
+
+      {showTermsModal && (
+        <TermsImportModal
+          currentText={issue.terms_text || ''}
+          onApply={async (text) => {
+            await onUpdateTerms(text)
+            setShowTermsModal(false)
+          }}
+          onClose={() => setShowTermsModal(false)}
+        />
       )}
     </div>
   )
@@ -386,7 +467,7 @@ function QuoteItemRow({
   onUpdateField,
   onDelete,
 }: {
-  item: QuoteItem
+  item: QuoteItemWithTotal
   shouldFocus: boolean
   onFocused: () => void
   onUpdateField: (id: string, field: keyof QuoteItem, value: string | number) => Promise<void>
@@ -427,6 +508,13 @@ function QuoteItemRow({
           className="text-text-muted"
         />
       </td>
+      <td className="px-4 py-1.5 text-right">
+        <span className="text-sm text-text tabular-nums pr-2">
+          {item.total_ex_gst > 0
+            ? '$' + Math.round(item.total_ex_gst).toLocaleString('en-AU')
+            : <span className="text-text-faint">—</span>}
+        </span>
+      </td>
       <td className="px-4 py-1.5">
         <Link
           href={`/quote-items/${item.id}`}
@@ -447,6 +535,161 @@ function QuoteItemRow({
         </button>
       </td>
     </tr>
+  )
+}
+
+// ----- Terms & Conditions field -----
+
+function TermsField({ value, onSave }: { value: string; onSave: (v: string) => Promise<void> }) {
+  const [local, setLocal] = useState(value)
+  useEffect(() => { setLocal(value) }, [value])
+
+  return (
+    <textarea
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (local !== value) onSave(local) }}
+      rows={8}
+      placeholder="Type your terms and conditions here, or use 'Import clauses' to pull from your templates..."
+      className="w-full px-4 py-3 text-sm text-text bg-surface border border-border-strong rounded-lg resize-y focus:outline-none focus:border-accent focus:ring-2 focus:ring-border placeholder:text-text-faint"
+    />
+  )
+}
+
+// ----- Terms Import Modal -----
+
+function TermsImportModal({
+  currentText,
+  onApply,
+  onClose,
+}: {
+  currentText: string
+  onApply: (text: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [clauses, setClauses] = useState<TermsTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [applying, setApplying] = useState(false)
+
+  useEffect(() => {
+    getAllTermsTemplates().then((data) => {
+      setClauses(data)
+      // Pre-tick all clauses
+      setSelected(new Set(data.map((c) => c.id)))
+      setLoading(false)
+    })
+  }, [])
+
+  function toggleClause(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function handleApply() {
+    const ordered = clauses.filter((c) => selected.has(c.id))
+    const text = ordered
+      .map((c) => `${c.title}\n\n${c.body}`)
+      .join('\n\n---\n\n')
+    setApplying(true)
+    try {
+      await onApply(text)
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  const selectedCount = selected.size
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-border rounded-lg shadow-xl w-[520px] max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-medium text-text">Import Terms &amp; Conditions</h3>
+          <p className="text-xs text-text-subtle mt-0.5">
+            All clauses are pre-selected. Untick any you don&apos;t need for this quote.
+          </p>
+          {currentText && (
+            <p className="text-xs text-warning mt-1.5 bg-warning-bg border border-warning-border rounded px-2 py-1">
+              This will replace any existing terms text on this issue.
+            </p>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+          {loading ? (
+            <p className="text-text-subtle text-sm p-4 text-center">Loading clauses...</p>
+          ) : clauses.length === 0 ? (
+            <p className="text-text-subtle text-sm p-4 text-center italic">
+              No terms clauses found. Add some in Templates → Terms &amp; Conditions.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {clauses.map((clause) => {
+                const checked = selected.has(clause.id)
+                return (
+                  <li key={clause.id}>
+                    <label
+                      className={`flex gap-3 px-3 py-2.5 rounded-md cursor-pointer transition-colors ${
+                        checked ? 'bg-accent/5 border border-accent/20' : 'border border-border hover:bg-surface-hover'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleClause(clause.id)}
+                        className="mt-0.5 shrink-0 accent-accent"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text">{clause.title || 'Untitled clause'}</p>
+                        {clause.category && (
+                          <p className="text-[10px] text-text-subtle">{clause.category}</p>
+                        )}
+                        {clause.body && (
+                          <p className="text-xs text-text-muted mt-1 line-clamp-2">{clause.body}</p>
+                        )}
+                      </div>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between gap-2">
+          <span className="text-xs text-text-subtle">
+            {selectedCount} of {clauses.length} clause{clauses.length !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs text-text-muted hover:text-text"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={selectedCount === 0 || applying || loading}
+              className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50"
+            >
+              {applying ? 'Applying...' : `Apply ${selectedCount > 0 ? selectedCount : ''} clause${selectedCount !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -491,9 +734,11 @@ function IssueNameField({
 
 function ImportTemplateModal({
   onImport,
+  onCreateBlank,
   onClose,
 }: {
   onImport: (templateId: string, name: string) => Promise<void>
+  onCreateBlank: () => Promise<void>
   onClose: () => void
 }) {
   const [templates, setTemplates] = useState<QuoteItemTemplate[]>([])
@@ -501,6 +746,7 @@ function ImportTemplateModal({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [importName, setImportName] = useState('')
   const [importing, setImporting] = useState(false)
+  const [creatingBlank, setCreatingBlank] = useState(false)
 
   useEffect(() => {
     getAllQuoteItemTemplates().then((data) => {
@@ -602,22 +848,35 @@ function ImportTemplateModal({
         )}
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 text-xs text-text-muted hover:text-text"
+            onClick={async () => {
+              setCreatingBlank(true)
+              try { await onCreateBlank() } finally { setCreatingBlank(false) }
+            }}
+            disabled={creatingBlank || importing}
+            className="px-3 py-1.5 text-xs text-text-muted border border-border-strong rounded-md hover:bg-surface-hover disabled:opacity-50"
           >
-            Cancel
+            {creatingBlank ? 'Creating...' : 'Create blank'}
           </button>
-          <button
-            type="button"
-            onClick={handleImport}
-            disabled={!selectedId || !importName.trim() || importing}
-            className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50"
-          >
-            {importing ? 'Importing...' : 'Import'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs text-text-muted hover:text-text"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={!selectedId || !importName.trim() || importing}
+              className="px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50"
+            >
+              {importing ? 'Importing...' : 'Import'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

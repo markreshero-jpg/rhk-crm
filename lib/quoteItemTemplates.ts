@@ -69,7 +69,7 @@ export async function importTemplateToIssue(
   templateId: string,
   issueId: string,
   name: string
-): Promise<void> {
+): Promise<string> {
   // Find next sort position in the issue
   const { data: existing, error: sortError } = await supabase
     .from('quote_items')
@@ -150,4 +150,6 @@ export async function importTemplateToIssue(
       )
     if (insertError) throw insertError
   }
+
+  return quoteItem.id
 }

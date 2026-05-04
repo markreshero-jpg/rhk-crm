@@ -69,6 +69,39 @@ export async function renumberQuoteItems(issueId: string): Promise<void> {
     await updateQuoteItem(items[i].id, { sort: i + 1 })
   }
 }
+// ----- Per-item totals -----
+
+type RawLine = { price: number | null; qty: number | null; markup_percent: number | null }
+
+function lineSellPrice(l: RawLine): number {
+  return (l.price ?? 0) * (l.qty ?? 0) * (1 + (l.markup_percent ?? 0) / 100)
+}
+
+export type QuoteItemWithTotal = QuoteItem & { total_ex_gst: number }
+
+export async function getQuoteItemsWithTotals(issueId: string): Promise<QuoteItemWithTotal[]> {
+  const { data, error } = await supabase
+    .from('quote_items')
+    .select('*, lines:quote_item_lines(price, qty, markup_percent), labour:quote_item_labour(price, qty, markup_percent)')
+    .eq('issue_id', issueId)
+    .order('sort', { ascending: true })
+
+  if (error) throw error
+
+  return (data || []).map((item) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = item as any
+    const linesTotal  = (raw.lines  || []).reduce((s: number, l: RawLine) => s + lineSellPrice(l), 0)
+    const labourTotal = (raw.labour || []).reduce((s: number, l: RawLine) => s + lineSellPrice(l), 0)
+    const total_ex_gst = (linesTotal + labourTotal) * (raw.qty ?? 1)
+    return {
+      id: raw.id, created_at: raw.created_at, updated_at: raw.updated_at,
+      issue_id: raw.issue_id, sort: raw.sort, name: raw.name, qty: raw.qty,
+      notes: raw.notes, total_ex_gst,
+    } as QuoteItemWithTotal
+  })
+}
+
 export type QuoteItemWithContext = QuoteItem & {
     issue: {
       id: string

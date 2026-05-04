@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import QuoteItemTemplatesList from '@/components/templates/QuoteItemTemplatesList'
 import StandaloneLineTemplatesList from '@/components/templates/StandaloneLineTemplatesList'
 import StandaloneLabourTemplatesList from '@/components/templates/StandaloneLabourTemplatesList'
+import TermsTemplatesList from '@/components/templates/TermsTemplatesList'
 
 export default function TemplatesPage() {
   return (
@@ -23,6 +24,7 @@ function TemplatesPageContent() {
     { id: 'bundles', label: 'Quote Item Templates' },
     { id: 'material', label: 'Material Lines' },
     { id: 'labour', label: 'Labour Lines' },
+    { id: 'terms', label: 'Terms & Conditions' },
   ]
 
   return (
@@ -41,6 +43,7 @@ function TemplatesPageContent() {
         {activeTab === 'bundles' && <QuoteItemTemplatesList />}
         {activeTab === 'material' && <StandaloneLineTemplatesList />}
         {activeTab === 'labour' && <StandaloneLabourTemplatesList />}
+        {activeTab === 'terms' && <TermsTemplatesList />}
       </Tabs>
     </div>
   )
