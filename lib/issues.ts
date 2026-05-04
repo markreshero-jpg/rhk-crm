@@ -8,6 +8,7 @@ export type Issue = {
   updated_at: string
   job_id: string
   issue_number: number
+  name: string | null
   status: IssueStatus
   quoted_by: string | null
   terms_text: string | null

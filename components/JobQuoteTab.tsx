@@ -8,6 +8,7 @@ import {
   createIssue,
   duplicateIssue,
   deleteIssue,
+  updateIssue,
   Issue,
 } from '@/lib/issues'
 import {
@@ -140,6 +141,11 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
     }
   }
 
+  async function handleUpdateIssueName(issueId: string, name: string) {
+    await updateIssue(issueId, { name: name || null })
+    await loadIssues()
+  }
+
   async function handleImportTemplate(templateId: string, name: string) {
     if (!selectedIssueId) return
     setBusy(true)
@@ -193,26 +199,34 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
               const isSelected = selectedIssueId === issue.id
               return (
                 <li key={issue.id}>
-                  <button
-                    type="button"
+                  <div
                     onClick={() => setSelectedIssueId(issue.id)}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between ${
+                    className={`w-full px-2 py-1.5 rounded-md text-sm transition-colors ${
                       isSelected
                         ? 'bg-accent text-accent-text'
                         : 'text-text hover:bg-surface-hover'
                     }`}
                   >
-                    <span>Issue {issue.issue_number}</span>
-                    <span
-                      className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
-                        isSelected
-                          ? 'bg-surface text-text border-border'
-                          : statusStyles[issue.status] || ''
-                      }`}
-                    >
-                      {issue.status}
-                    </span>
-                  </button>
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className={`text-[10px] font-medium ${isSelected ? 'text-accent-text/70' : 'text-text-subtle'}`}>
+                        Issue {issue.issue_number}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                          isSelected
+                            ? 'bg-surface text-text border-border'
+                            : statusStyles[issue.status] || ''
+                        }`}
+                      >
+                        {issue.status}
+                      </span>
+                    </div>
+                    <IssueNameField
+                      issue={issue}
+                      isSelected={isSelected}
+                      onSave={(name) => handleUpdateIssueName(issue.id, name)}
+                    />
+                  </div>
                 </li>
               )
             })
@@ -433,6 +447,43 @@ function QuoteItemRow({
         </button>
       </td>
     </tr>
+  )
+}
+
+// ----- Issue name inline editor -----
+
+function IssueNameField({
+  issue,
+  isSelected,
+  onSave,
+}: {
+  issue: Issue
+  isSelected: boolean
+  onSave: (name: string) => void
+}) {
+  const [local, setLocal] = useState(issue.name || '')
+  useEffect(() => { setLocal(issue.name || '') }, [issue.name])
+
+  function commit() {
+    if (local !== (issue.name || '')) onSave(local)
+  }
+
+  return (
+    <input
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={commit}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        else if (e.key === 'Escape') { setLocal(issue.name || ''); e.currentTarget.blur() }
+      }}
+      placeholder="Add a label..."
+      className={`w-full text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:outline-none focus:border-accent/50 focus:bg-black/10 placeholder:italic ${
+        isSelected ? 'text-accent-text placeholder:text-accent-text/40' : 'text-text placeholder:text-text-faint'
+      }`}
+    />
   )
 }
 
