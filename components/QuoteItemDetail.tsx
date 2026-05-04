@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Plus, Trash2, ListOrdered } from 'lucide-react'
+import { Plus, Trash2, ListOrdered, ChevronLeft } from 'lucide-react'
+import Link from 'next/link'
 import {
   getQuoteItemLinesByQuoteItemId,
   createQuoteItemLine,
@@ -151,300 +152,280 @@ export default function QuoteItemDetail({
 
   return (
     <div>
-      {/* Header strip with item name + qty + notes */}
-      <div className="mb-6">
-        <div className="flex items-baseline gap-3 mb-1">
+      {/* Header bar */}
+      <div className="flex items-stretch gap-0 mb-3 border border-border rounded-md bg-surface-muted overflow-hidden">
+        <div className="px-4 py-3 shrink-0">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Job</div>
+          <Link
+            href={`/jobs/${item.issue.job.id}?tab=quote`}
+            className="text-sm font-medium text-text hover:text-accent flex items-center gap-0.5"
+          >
+            <ChevronLeft size={13} className="text-text-faint" />
+            {item.issue.job.job_number}
+            {item.issue.job.title ? ` · ${item.issue.job.title}` : ''}
+          </Link>
+        </div>
+        <div className="w-px bg-border shrink-0" />
+        <div className="px-4 py-3 shrink-0">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Issue</div>
+          <div className="text-sm font-medium text-text">Issue {item.issue.issue_number}</div>
+        </div>
+        <div className="w-px bg-border shrink-0" />
+        <div className="flex-1 px-4 py-3 min-w-0">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Item Name</div>
           <InlineTextField
             value={item.name}
             onSave={(v) => onUpdateField('name', v)}
             placeholder="Item name (e.g. Kitchen)"
-            className="text-4xl font-medium text-text tracking-tight max-w-md"
-            inputClass="px-2 py-1"
+            className="font-medium text-text"
+            inputClass="px-1 py-0"
           />
         </div>
-        <div className="flex items-center gap-3 text-sm text-text-muted">
-          <span>Qty</span>
+        <div className="w-px bg-border shrink-0" />
+        <div className="px-4 py-3 shrink-0">
+          <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">Qty</div>
           <InlineNumberField
             value={item.qty}
             onSave={(v) => onUpdateField('qty', v)}
             className="text-text"
-            widthClass="w-20"
-          />
-        </div>
-        <div className="mt-2 max-w-2xl">
-          <InlineTextField
-            value={item.notes || ''}
-            onSave={(v) => onUpdateField('notes', v)}
-            placeholder="Optional notes (italic on printed quote)"
-            className="text-sm italic text-text-muted"
-            inputClass="px-2 py-1"
+            widthClass="w-16"
           />
         </div>
       </div>
 
-      <div className="flex gap-6">
-        {/* Left: tables */}
-        <div className="flex-1 min-w-0 space-y-8">
-          {loading ? (
-            <p className="text-text-subtle text-sm">Loading...</p>
-          ) : (
-            <>
-              {/* Material Lines */}
-              <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
-                    Material Lines
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAddLine}
-                      className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover"
-                    >
-                      <Plus size={12} /> New Line
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRenumberLines}
-                      disabled={lines.length === 0}
-                      className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50"
-                    >
-                      <ListOrdered size={12} /> Renumber
-                    </button>
-                  </div>
-                </div>
+      {/* Notes */}
+      <div className="mb-4 max-w-2xl">
+        <InlineTextField
+          value={item.notes || ''}
+          onSave={(v) => onUpdateField('notes', v)}
+          placeholder="Optional notes (italic on printed quote)"
+          className="text-sm italic text-text-muted"
+          inputClass="px-2 py-1"
+        />
+      </div>
 
-                <div className="border border-border rounded-md overflow-x-auto">
-                  <table className="w-full min-w-[1100px]">
-                    <thead className="bg-surface-muted border-b border-border">
-                      <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
-                        <th className="px-1.5 py-1 font-medium w-14">Sort</th>
-                        <th className="px-1.5 py-1 font-medium w-40">Item</th>
-                        <th className="px-1.5 py-1 font-medium">Description</th>
-                        <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
-                        <th className="px-1.5 py-1 font-medium w-24">Code</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
-                        <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
-                        <th className="px-1.5 py-1 font-medium w-20 text-right">Sub Total</th>
-                        <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
-                        <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
-                        <th className="px-1.5 py-1 font-medium w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
-                      {lines.length === 0 ? (
-                        <tr>
-                          <td colSpan={13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
-                            No material lines yet. Click &quot;New Line&quot; to add one.
-                          </td>
-                        </tr>
-                      ) : (
-                        lines.map((line) => (
-                          <LineRow
-                            key={line.id}
-                            line={line}
-                            suppliers={suppliers}
-                            shouldFocus={focusLineId === line.id}
-                            onFocused={() => setFocusLineId(null)}
-                            onUpdate={handleUpdateLine}
-                            onDelete={() => handleDeleteLine(line)}
-                          />
-                        ))
-                      )}
-                    </tbody>
-                    {lines.length > 0 && (
-                      <tfoot className="bg-surface-muted border-t border-border">
-                        <tr className="text-[11px] text-text-muted">
-                          <td colSpan={7} className="px-1.5 py-1 text-right font-medium">Totals:</td>
-                          <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalCost)}</td>
-                          <td></td>
-                          <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalIncMup)}</td>
-                          <td className="px-1.5 py-1 text-right">{formatCurrency(linesGst)}</td>
-                          <td className="px-1.5 py-1 text-right font-medium text-text">{formatCurrency(linesTotal)}</td>
-                          <td></td>
-                        </tr>
-                        <tr className="text-[10px] text-text-faint">
-                          <td colSpan={7} className="px-2 pb-2 text-right">subtotal cost</td>
-                          <td></td>
-                          <td></td>
-                          <td className="px-2 pb-2 text-right">subtotal inc mup</td>
-                          <td className="px-2 pb-2 text-right">gst</td>
-                          <td className="px-2 pb-2 text-right">total</td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
-              </section>
+      {/* Forecast bar */}
+      <div className="flex items-stretch gap-0 mb-6 border border-border rounded-md bg-surface-muted overflow-hidden">
+        <ForecastCol label="Materials cost ex GST" value={formatCurrency(materialsCostExGst)} sub={formatPercent(materialsPercent)} />
+        <ForecastCol label="Labour cost ex GST" value={formatCurrency(labourCostExGst)} sub={formatPercent(labourPercent)} />
+        <ForecastCol label="Profit ex GST" value={formatCurrency(profitExGst)} sub={formatPercent(profitPercent)} />
+        <div className="w-px bg-border shrink-0" />
+        <ForecastCol label="Item total ex GST" value={formatCurrency(itemTotalExGst)} />
+        <ForecastCol label="Item total inc GST" value={formatCurrency(itemTotalIncGst)} strong />
+        <div className="w-px bg-border shrink-0" />
+        <ForecastCol label="Per hr turnover" value={formatCurrency(perHrTurnover)} />
+      </div>
 
-              {/* Labour Lines */}
-              <section>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
-                    Labour
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAddLabour}
-                      className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover"
-                    >
-                      <Plus size={12} /> New Labour Line
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRenumberLabour}
-                      disabled={labour.length === 0}
-                      className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50"
-                    >
-                      <ListOrdered size={12} /> Renumber
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border border-border rounded-md overflow-x-auto">
-                  <table className="w-full min-w-[800px]">
-                    <thead className="bg-surface-muted border-b border-border">
-                      <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
-                        <th className="px-1.5 py-1 font-medium w-14">Sort</th>
-                        <th className="px-1.5 py-1 font-medium w-48">Type</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Price/Hr</th>
-                        <th className="px-1.5 py-1 font-medium w-20 text-right">Hours</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Sub Total</th>
-                        <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
-                        <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
-                        <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
-                        <th className="px-1.5 py-1 font-medium w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
-                      {labour.length === 0 ? (
-                        <tr>
-                          <td colSpan={10} className="px-4 py-8 text-center text-text-subtle text-sm italic">
-                            No labour lines yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        labour.map((lab) => (
-                          <LabourRow
-                            key={lab.id}
-                            labour={lab}
-                            shouldFocus={focusLabourId === lab.id}
-                            onFocused={() => setFocusLabourId(null)}
-                            onUpdate={handleUpdateLabour}
-                            onDelete={() => handleDeleteLabour(lab)}
-                          />
-                        ))
-                      )}
-                    </tbody>
-                    {labour.length > 0 && (
-                      <tfoot className="bg-surface-muted border-t border-border">
-                        <tr className="text-[11px] text-text-muted">
-                          <td colSpan={3} className="px-1.5 py-1 text-right font-medium">
-                            Total hrs: {formatNumber(totalLabourHours, 1)}
-                          </td>
-                          <td></td>
-                          <td className="px-1.5 py-1 text-right">{formatCurrency(labourSubtotalCost)}</td>
-                          <td></td>
-                          <td className="px-1.5 py-1 text-right">{formatCurrency(labourSubtotalIncMup)}</td>
-                          <td className="px-1.5 py-1 text-right">{formatCurrency(labourGstTotal)}</td>
-                          <td className="px-1.5 py-1 text-right font-medium text-text">{formatCurrency(labourTotalSum)}</td>
-                          <td></td>
-                        </tr>
-                        <tr className="text-[10px] text-text-faint">
-                          <td colSpan={4}></td>
-                          <td className="px-2 pb-2 text-right">subtotal cost</td>
-                          <td></td>
-                          <td className="px-2 pb-2 text-right">subtotal inc mup</td>
-                          <td className="px-2 pb-2 text-right">gst</td>
-                          <td className="px-2 pb-2 text-right">total</td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
-              </section>
-            </>
-          )}
-        </div>
-
-        {/* Right: Forecast panel */}
-        <aside className="w-72 shrink-0">
-          <div className="sticky top-4 bg-surface border border-border rounded-md p-5">
-            <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-4">
-              Item Forecast
-            </h3>
-
-            <div className="space-y-3 text-sm">
-              <ForecastRow
-                label="Materials cost ex GST"
-                value={formatCurrency(materialsCostExGst)}
-                aside={formatPercent(materialsPercent)}
-              />
-              <ForecastRow
-                label="Labour cost ex GST"
-                value={formatCurrency(labourCostExGst)}
-                aside={formatPercent(labourPercent)}
-              />
-              <ForecastRow
-                label="Profit ex GST"
-                value={formatCurrency(profitExGst)}
-                aside={formatPercent(profitPercent)}
-                strong
-              />
-
-              <div className="border-t border-border pt-3 mt-3 space-y-1">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-text-muted text-xs">Item total</span>
-                </div>
-                <div className="flex justify-between items-baseline">
-                  <span className="text-text-faint text-[11px]">ex GST</span>
-                  <span className="text-text font-medium">{formatCurrency(itemTotalExGst)}</span>
-                </div>
-                <div className="flex justify-between items-baseline">
-                  <span className="text-text-faint text-[11px]">inc GST</span>
-                  <span className="text-text text-base font-semibold">{formatCurrency(itemTotalIncGst)}</span>
+      {/* Tables */}
+      <div className="space-y-8">
+        {loading ? (
+          <p className="text-text-subtle text-sm">Loading...</p>
+        ) : (
+          <>
+            {/* Material Lines */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
+                  Material Lines
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddLine}
+                    className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover"
+                  >
+                    <Plus size={12} /> New Line
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRenumberLines}
+                    disabled={lines.length === 0}
+                    className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    <ListOrdered size={12} /> Renumber
+                  </button>
                 </div>
               </div>
 
-              <div className="border-t border-border pt-3 mt-3">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-text-muted text-xs">Per hr turnover</span>
-                  <span className="text-text font-medium">{formatCurrency(perHrTurnover)}</span>
+              <div className="border border-border rounded-md overflow-x-auto">
+                <table className="w-full min-w-[1100px]">
+                  <thead className="bg-surface-muted border-b border-border">
+                    <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
+                      <th className="px-1.5 py-1 font-medium w-14">Sort</th>
+                      <th className="px-1.5 py-1 font-medium w-40">Item</th>
+                      <th className="px-1.5 py-1 font-medium">Description</th>
+                      <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
+                      <th className="px-1.5 py-1 font-medium w-24">Code</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
+                      <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
+                      <th className="px-1.5 py-1 font-medium w-20 text-right">Sub Total</th>
+                      <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
+                      <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
+                      <th className="px-1.5 py-1 font-medium w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
+                    {lines.length === 0 ? (
+                      <tr>
+                        <td colSpan={13} className="px-4 py-8 text-center text-text-subtle text-sm italic">
+                          No material lines yet. Click &quot;New Line&quot; to add one.
+                        </td>
+                      </tr>
+                    ) : (
+                      lines.map((line) => (
+                        <LineRow
+                          key={line.id}
+                          line={line}
+                          suppliers={suppliers}
+                          shouldFocus={focusLineId === line.id}
+                          onFocused={() => setFocusLineId(null)}
+                          onUpdate={handleUpdateLine}
+                          onDelete={() => handleDeleteLine(line)}
+                        />
+                      ))
+                    )}
+                  </tbody>
+                  {lines.length > 0 && (
+                    <tfoot className="bg-surface-muted border-t border-border">
+                      <tr className="text-[11px] text-text-muted">
+                        <td colSpan={7} className="px-1.5 py-1 text-right font-medium">Totals:</td>
+                        <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalCost)}</td>
+                        <td></td>
+                        <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalIncMup)}</td>
+                        <td className="px-1.5 py-1 text-right">{formatCurrency(linesGst)}</td>
+                        <td className="px-1.5 py-1 text-right font-medium text-text">{formatCurrency(linesTotal)}</td>
+                        <td></td>
+                      </tr>
+                      <tr className="text-[10px] text-text-faint">
+                        <td colSpan={7} className="px-2 pb-2 text-right">subtotal cost</td>
+                        <td></td>
+                        <td></td>
+                        <td className="px-2 pb-2 text-right">subtotal inc mup</td>
+                        <td className="px-2 pb-2 text-right">gst</td>
+                        <td className="px-2 pb-2 text-right">total</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </section>
+
+            {/* Labour Lines */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
+                  Labour
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddLabour}
+                    className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover"
+                  >
+                    <Plus size={12} /> New Labour Line
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRenumberLabour}
+                    disabled={labour.length === 0}
+                    className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    <ListOrdered size={12} /> Renumber
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </aside>
+
+              <div className="border border-border rounded-md overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-surface-muted border-b border-border">
+                    <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
+                      <th className="px-1.5 py-1 font-medium w-14">Sort</th>
+                      <th className="px-1.5 py-1 font-medium w-48">Type</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Price/Hr</th>
+                      <th className="px-1.5 py-1 font-medium w-20 text-right">Hours</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Sub Total</th>
+                      <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
+                      <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
+                      <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
+                      <th className="px-1.5 py-1 font-medium w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
+                    {labour.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="px-4 py-8 text-center text-text-subtle text-sm italic">
+                          No labour lines yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      labour.map((lab) => (
+                        <LabourRow
+                          key={lab.id}
+                          labour={lab}
+                          shouldFocus={focusLabourId === lab.id}
+                          onFocused={() => setFocusLabourId(null)}
+                          onUpdate={handleUpdateLabour}
+                          onDelete={() => handleDeleteLabour(lab)}
+                        />
+                      ))
+                    )}
+                  </tbody>
+                  {labour.length > 0 && (
+                    <tfoot className="bg-surface-muted border-t border-border">
+                      <tr className="text-[11px] text-text-muted">
+                        <td colSpan={3} className="px-1.5 py-1 text-right font-medium">
+                          Total hrs: {formatNumber(totalLabourHours, 1)}
+                        </td>
+                        <td></td>
+                        <td className="px-1.5 py-1 text-right">{formatCurrency(labourSubtotalCost)}</td>
+                        <td></td>
+                        <td className="px-1.5 py-1 text-right">{formatCurrency(labourSubtotalIncMup)}</td>
+                        <td className="px-1.5 py-1 text-right">{formatCurrency(labourGstTotal)}</td>
+                        <td className="px-1.5 py-1 text-right font-medium text-text">{formatCurrency(labourTotalSum)}</td>
+                        <td></td>
+                      </tr>
+                      <tr className="text-[10px] text-text-faint">
+                        <td colSpan={4}></td>
+                        <td className="px-2 pb-2 text-right">subtotal cost</td>
+                        <td></td>
+                        <td className="px-2 pb-2 text-right">subtotal inc mup</td>
+                        <td className="px-2 pb-2 text-right">gst</td>
+                        <td className="px-2 pb-2 text-right">total</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function ForecastRow({
+function ForecastCol({
   label,
   value,
-  aside,
+  sub,
   strong,
 }: {
   label: string
   value: string
-  aside?: string
+  sub?: string
   strong?: boolean
 }) {
   return (
-    <div className="flex justify-between items-baseline">
-      <span className="text-text-muted text-xs">{label}</span>
-      <div className="text-right">
-        <div className={`${strong ? 'text-text font-semibold' : 'text-text font-medium'}`}>
-          {value}
-        </div>
-        {aside && <div className="text-[10px] text-text-faint">{aside}</div>}
+    <div className="flex-1 px-4 py-3">
+      <div className="text-[10px] uppercase tracking-wider text-text-subtle mb-1">{label}</div>
+      <div className={`text-sm ${strong ? 'font-semibold text-text' : 'font-medium text-text'}`}>
+        {value}
+        {sub && <span className="text-text-faint font-normal ml-1.5">{sub}</span>}
       </div>
     </div>
   )
@@ -500,7 +481,7 @@ function LineRow({
         >
           <option value="">—</option>
           {suppliers.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.company_name}</option>
           ))}
         </select>
       </td>
@@ -508,7 +489,7 @@ function LineRow({
         <InlineTextField value={line.item_code || ''} onSave={(v) => onUpdate(line.id, 'item_code', v)} className="text-text-muted text-xs font-mono" />
       </td>
       <td className="px-1 py-0">
-        <InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" widthClass="w-full" />
+        <InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" widthClass="w-full" decimals={2} />
       </td>
       <td className="px-1 py-0">
         <InlineNumberField value={line.qty} onSave={(v) => onUpdate(line.id, 'qty', v)} className="text-right text-text" widthClass="w-full" />
@@ -567,7 +548,7 @@ function LabourRow({
         <InlineTextField ref={typeRef} value={labour.type} onSave={(v) => onUpdate(labour.id, 'type', v)} placeholder="e.g. Cut & Edge" className="text-text" />
       </td>
       <td className="px-1 py-0">
-        <InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" widthClass="w-full" />
+        <InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" widthClass="w-full" decimals={2} />
       </td>
       <td className="px-1 py-0">
         <InlineNumberField value={labour.qty} onSave={(v) => onUpdate(labour.id, 'qty', v)} className="text-right text-text" widthClass="w-full" />
@@ -641,23 +622,25 @@ function InlineNumberField({
   className = '',
   widthClass = '',
   suffix,
+  decimals,
 }: {
   value: number
   onSave: (value: number) => void
   className?: string
   widthClass?: string
   suffix?: string
+  decimals?: number
 }) {
-  const [local, setLocal] = useState(String(value))
+  const [local, setLocal] = useState(decimals != null ? value.toFixed(decimals) : String(value))
 
   useEffect(() => {
-    setLocal(String(value))
-  }, [value])
+    setLocal(decimals != null ? value.toFixed(decimals) : String(value))
+  }, [value, decimals])
 
   function commit() {
     const n = parseFloat(local)
     if (isNaN(n)) {
-      setLocal(String(value))
+      setLocal(decimals != null ? value.toFixed(decimals) : String(value))
       return
     }
     if (n !== value) onSave(n)
@@ -674,7 +657,7 @@ function InlineNumberField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
           else if (e.key === 'Escape') {
-            setLocal(String(value))
+            setLocal(decimals != null ? value.toFixed(decimals) : String(value))
             e.currentTarget.blur()
           }
         }}

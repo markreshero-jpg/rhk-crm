@@ -57,7 +57,7 @@ export default function StandaloneLineTemplatesList() {
   async function handleRenumber() {
     const sorted = [...lines].sort((a, b) => a.sort - b.sort)
     for (let i = 0; i < sorted.length; i++) {
-      await updateLineTemplate(sorted[i].id, { sort: (i + 1) * 10 })
+      await updateLineTemplate(sorted[i].id, { sort: i + 1 })
     }
     await load()
   }
@@ -209,7 +209,7 @@ function LineRow({
         >
           <option value="">—</option>
           {suppliers.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.company_name}</option>
           ))}
         </select>
       </td>
@@ -217,7 +217,7 @@ function LineRow({
         <InlineTextField value={line.item_code || ''} onSave={(v) => onUpdate(line.id, 'item_code', v)} className="text-text-muted text-xs font-mono" />
       </td>
       <td className="px-1 py-0">
-        <InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" />
+        <InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" decimals={2} />
       </td>
       <td className="px-1 py-0">
         <InlineNumberField value={line.qty} onSave={(v) => onUpdate(line.id, 'qty', v)} className="text-right text-text" />
@@ -274,17 +274,19 @@ function InlineNumberField({
   onSave,
   className = '',
   suffix,
+  decimals,
 }: {
   value: number
   onSave: (value: number) => void
   className?: string
   suffix?: string
+  decimals?: number
 }) {
-  const [local, setLocal] = useState(String(value))
-  useEffect(() => { setLocal(String(value)) }, [value])
+  const [local, setLocal] = useState(decimals != null ? value.toFixed(decimals) : String(value))
+  useEffect(() => { setLocal(decimals != null ? value.toFixed(decimals) : String(value)) }, [value, decimals])
   function commit() {
     const n = parseFloat(local)
-    if (isNaN(n)) { setLocal(String(value)); return }
+    if (isNaN(n)) { setLocal(decimals != null ? value.toFixed(decimals) : String(value)); return }
     if (n !== value) onSave(n)
   }
   return (
@@ -297,7 +299,7 @@ function InlineNumberField({
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
-          else if (e.key === 'Escape') { setLocal(String(value)); e.currentTarget.blur() }
+          else if (e.key === 'Escape') { setLocal(decimals != null ? value.toFixed(decimals) : String(value)); e.currentTarget.blur() }
         }}
         className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
       />

@@ -53,7 +53,7 @@ export default function StandaloneLabourTemplatesList() {
   async function handleRenumber() {
     const sorted = [...labour].sort((a, b) => a.sort - b.sort)
     for (let i = 0; i < sorted.length; i++) {
-      await updateLabourTemplate(sorted[i].id, { sort: (i + 1) * 10 })
+      await updateLabourTemplate(sorted[i].id, { sort: i + 1 })
     }
     await load()
   }
@@ -181,7 +181,7 @@ function Row({
         <InlineTextField ref={typeRef} value={labour.type} onSave={(v) => onUpdate(labour.id, 'type', v)} placeholder="e.g. Cut & Edge" className="text-text" />
       </td>
       <td className="px-1 py-0">
-        <InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" />
+        <InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" decimals={2} />
       </td>
       <td className="px-1 py-0">
         <InlineNumberField value={labour.qty} onSave={(v) => onUpdate(labour.id, 'qty', v)} className="text-right text-text" />
@@ -238,17 +238,19 @@ function InlineNumberField({
   onSave,
   className = '',
   suffix,
+  decimals,
 }: {
   value: number
   onSave: (value: number) => void
   className?: string
   suffix?: string
+  decimals?: number
 }) {
-  const [local, setLocal] = useState(String(value))
-  useEffect(() => { setLocal(String(value)) }, [value])
+  const [local, setLocal] = useState(decimals != null ? value.toFixed(decimals) : String(value))
+  useEffect(() => { setLocal(decimals != null ? value.toFixed(decimals) : String(value)) }, [value, decimals])
   function commit() {
     const n = parseFloat(local)
-    if (isNaN(n)) { setLocal(String(value)); return }
+    if (isNaN(n)) { setLocal(decimals != null ? value.toFixed(decimals) : String(value)); return }
     if (n !== value) onSave(n)
   }
   return (
@@ -261,7 +263,7 @@ function InlineNumberField({
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
-          else if (e.key === 'Escape') { setLocal(String(value)); e.currentTarget.blur() }
+          else if (e.key === 'Escape') { setLocal(decimals != null ? value.toFixed(decimals) : String(value)); e.currentTarget.blur() }
         }}
         className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
       />

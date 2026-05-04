@@ -1,8 +1,6 @@
 'use client'
 
 import { use, useEffect, useState, useCallback } from 'react'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 import {
   getQuoteItemById,
   updateQuoteItem,
@@ -62,18 +60,6 @@ export default function QuoteItemPage({
 
   return (
     <div className="p-10 max-w-[1400px]">
-      <Link
-        href={`/jobs/${item.issue.job.id}?tab=quote`}
-        className="inline-flex items-center gap-1 text-xs text-text-subtle hover:text-text mb-4"
-      >
-        <ChevronLeft size={14} /> Back to {item.issue.job.job_number}
-        {item.issue.job.title ? ` · ${item.issue.job.title}` : ''}
-      </Link>
-
-      <p className="text-xs uppercase tracking-widest text-text-subtle mb-2">
-        {item.issue.job.job_number} · Issue {item.issue.issue_number}
-      </p>
-
       <QuoteItemDetail
         item={item}
         onUpdateField={handleUpdateField}

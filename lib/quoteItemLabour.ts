@@ -27,7 +27,7 @@ export async function createLabour(labour: Partial<QuoteItemLabour>): Promise<Qu
   if (labour.sort === undefined && labour.quote_item_id) {
     const existing = await getLabourByQuoteItemId(labour.quote_item_id)
     const maxSort = existing.length > 0 ? Math.max(...existing.map((l) => l.sort)) : 0
-    labour.sort = maxSort + 10
+    labour.sort = maxSort + 1
   }
 
   const { data, error } = await supabase
@@ -64,7 +64,7 @@ export async function deleteLabour(id: string): Promise<void> {
 export async function renumberLabour(quoteItemId: string): Promise<void> {
   const labour = await getLabourByQuoteItemId(quoteItemId)
   for (let i = 0; i < labour.length; i++) {
-    await updateLabour(labour[i].id, { sort: (i + 1) * 10 })
+    await updateLabour(labour[i].id, { sort: i + 1 })
   }
 }
 

@@ -252,11 +252,11 @@ function BundledLineRow({
           className="w-full px-1.5 py-0.5 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted"
         >
           <option value="">—</option>
-          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.company_name}</option>)}
         </select>
       </td>
       <td className="px-1 py-0"><InlineTextField value={line.item_code || ''} onSave={(v) => onUpdate(line.id, 'item_code', v)} className="text-text-muted text-xs font-mono" /></td>
-      <td className="px-1 py-0"><InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" /></td>
+      <td className="px-1 py-0"><InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" decimals={2} /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.qty} onSave={(v) => onUpdate(line.id, 'qty', v)} className="text-right text-text" /></td>
       <td className="px-1 py-0"><InlineNumberField value={line.markup_percent} onSave={(v) => onUpdate(line.id, 'markup_percent', v)} className="text-right text-text" suffix="%" /></td>
       <td className="px-1 py-0">
@@ -290,7 +290,7 @@ function BundledLabourRow({
     <tr className="hover:bg-surface-hover group">
       <td className="px-1 py-0"><InlineNumberField value={labour.sort} onSave={(v) => onUpdate(labour.id, 'sort', v)} className="font-mono text-text-faint" /></td>
       <td className="px-1 py-0"><InlineTextField ref={ref} value={labour.type} onSave={(v) => onUpdate(labour.id, 'type', v)} placeholder="e.g. Cut & Edge" className="text-text" /></td>
-      <td className="px-1 py-0"><InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" /></td>
+      <td className="px-1 py-0"><InlineNumberField value={labour.price} onSave={(v) => onUpdate(labour.id, 'price', v)} className="text-right text-text" decimals={2} /></td>
       <td className="px-1 py-0"><InlineNumberField value={labour.qty} onSave={(v) => onUpdate(labour.id, 'qty', v)} className="text-right text-text" /></td>
       <td className="px-1 py-0"><InlineNumberField value={labour.markup_percent} onSave={(v) => onUpdate(labour.id, 'markup_percent', v)} className="text-right text-text" suffix="%" /></td>
       <td className="px-1 py-0">
@@ -344,17 +344,19 @@ function InlineNumberField({
   onSave,
   className = '',
   suffix,
+  decimals,
 }: {
   value: number
   onSave: (value: number) => void
   className?: string
   suffix?: string
+  decimals?: number
 }) {
-  const [local, setLocal] = useState(String(value))
-  useEffect(() => { setLocal(String(value)) }, [value])
+  const [local, setLocal] = useState(decimals != null ? value.toFixed(decimals) : String(value))
+  useEffect(() => { setLocal(decimals != null ? value.toFixed(decimals) : String(value)) }, [value, decimals])
   function commit() {
     const n = parseFloat(local)
-    if (isNaN(n)) { setLocal(String(value)); return }
+    if (isNaN(n)) { setLocal(decimals != null ? value.toFixed(decimals) : String(value)); return }
     if (n !== value) onSave(n)
   }
   return (
@@ -367,7 +369,7 @@ function InlineNumberField({
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
-          else if (e.key === 'Escape') { setLocal(String(value)); e.currentTarget.blur() }
+          else if (e.key === 'Escape') { setLocal(decimals != null ? value.toFixed(decimals) : String(value)); e.currentTarget.blur() }
         }}
         className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
       />

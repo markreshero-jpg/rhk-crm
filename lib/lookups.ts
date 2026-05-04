@@ -27,8 +27,8 @@ export async function createLookupValue(
   // Get next sort number
   const existing = await getLookupValues(listName)
   const nextSort = existing.length > 0
-    ? Math.max(...existing.map((v) => v.sort)) + 10
-    : 10
+    ? Math.max(...existing.map((v) => v.sort)) + 1
+    : 1
 
   const { data, error } = await supabase
     .from('lookup_values')

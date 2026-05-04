@@ -55,7 +55,7 @@ export async function createLineTemplate(line: Partial<LineTemplate>): Promise<L
       existing = await getStandaloneLines()
     }
     const maxSort = existing.length > 0 ? Math.max(...existing.map((l) => l.sort)) : 0
-    line.sort = maxSort + 10
+    line.sort = maxSort + 1
   }
 
   const { data, error } = await supabase

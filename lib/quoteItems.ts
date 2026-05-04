@@ -29,7 +29,7 @@ export async function createQuoteItem(item: Partial<QuoteItem>): Promise<QuoteIt
     const maxSort = existing.length > 0
       ? Math.max(...existing.map((i) => i.sort))
       : 0
-    item.sort = maxSort + 10
+    item.sort = maxSort + 1
   }
 
   const { data, error } = await supabase
@@ -63,11 +63,10 @@ export async function deleteQuoteItem(id: string): Promise<void> {
   if (error) throw error
 }
 
-// Renumber sort values to clean increments (10, 20, 30...)
 export async function renumberQuoteItems(issueId: string): Promise<void> {
   const items = await getQuoteItemsByIssueId(issueId)
   for (let i = 0; i < items.length; i++) {
-    await updateQuoteItem(items[i].id, { sort: (i + 1) * 10 })
+    await updateQuoteItem(items[i].id, { sort: i + 1 })
   }
 }
 export type QuoteItemWithContext = QuoteItem & {

@@ -47,7 +47,7 @@ export async function createLabourTemplate(l: Partial<LabourTemplate>): Promise<
       existing = await getStandaloneLabour()
     }
     const maxSort = existing.length > 0 ? Math.max(...existing.map((x) => x.sort)) : 0
-    l.sort = maxSort + 10
+    l.sort = maxSort + 1
   }
 
   const { data, error } = await supabase

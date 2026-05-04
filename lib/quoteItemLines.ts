@@ -33,7 +33,7 @@ export async function createQuoteItemLine(line: Partial<QuoteItemLine>): Promise
   if (line.sort === undefined && line.quote_item_id) {
     const existing = await getQuoteItemLinesByQuoteItemId(line.quote_item_id)
     const maxSort = existing.length > 0 ? Math.max(...existing.map((l) => l.sort)) : 0
-    line.sort = maxSort + 10
+    line.sort = maxSort + 1
   }
 
   const { data, error } = await supabase
@@ -70,7 +70,7 @@ export async function deleteQuoteItemLine(id: string): Promise<void> {
 export async function renumberQuoteItemLines(quoteItemId: string): Promise<void> {
   const lines = await getQuoteItemLinesByQuoteItemId(quoteItemId)
   for (let i = 0; i < lines.length; i++) {
-    await updateQuoteItemLine(lines[i].id, { sort: (i + 1) * 10 })
+    await updateQuoteItemLine(lines[i].id, { sort: i + 1 })
   }
 }
 

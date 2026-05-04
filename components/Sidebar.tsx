@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Briefcase, Users, Calendar, BookTemplate, Settings } from 'lucide-react'
+import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck } from 'lucide-react'
 
 const navItems = [
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/templates', label: 'Templates', icon: BookTemplate },
+  { href: '/suppliers', label: 'Suppliers', icon: Truck },
 ]
 
 export default function Sidebar() {
