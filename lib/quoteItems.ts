@@ -63,6 +63,42 @@ export async function deleteQuoteItem(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function duplicateQuoteItem(quoteItemId: string): Promise<QuoteItem> {
+  const { data: source, error: srcErr } = await supabase
+    .from('quote_items').select('*').eq('id', quoteItemId).single()
+  if (srcErr) throw srcErr
+
+  const { data: siblings } = await supabase
+    .from('quote_items').select('sort').eq('issue_id', source.issue_id)
+    .order('sort', { ascending: false }).limit(1)
+  const nextSort = siblings && siblings.length > 0 ? siblings[0].sort + 1 : source.sort + 1
+
+  const { data: newItem, error: newErr } = await supabase
+    .from('quote_items')
+    .insert({ issue_id: source.issue_id, name: `${source.name || 'Untitled'} (Duplicate)`, qty: source.qty, notes: source.notes, sort: nextSort })
+    .select().single()
+  if (newErr) throw newErr
+
+  const [{ data: lines }, { data: labour }] = await Promise.all([
+    supabase.from('quote_item_lines').select('*').eq('quote_item_id', quoteItemId).order('sort', { ascending: true }),
+    supabase.from('quote_item_labour').select('*').eq('quote_item_id', quoteItemId).order('sort', { ascending: true }),
+  ])
+
+  if (lines && lines.length > 0) {
+    await supabase.from('quote_item_lines').insert(
+      lines.map((l) => ({ quote_item_id: newItem.id, sort: l.sort, item: l.item, description: l.description, written_quote_text: l.written_quote_text, supplier_id: l.supplier_id, item_code: l.item_code, price: l.price, qty: l.qty, markup_percent: l.markup_percent, is_allowance: l.is_allowance }))
+    )
+  }
+
+  if (labour && labour.length > 0) {
+    await supabase.from('quote_item_labour').insert(
+      labour.map((l) => ({ quote_item_id: newItem.id, sort: l.sort, type: l.type, price: l.price, qty: l.qty, markup_percent: l.markup_percent }))
+    )
+  }
+
+  return newItem
+}
+
 export async function renumberQuoteItems(issueId: string): Promise<void> {
   const items = await getQuoteItemsByIssueId(issueId)
   for (let i = 0; i < items.length; i++) {

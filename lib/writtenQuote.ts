@@ -104,8 +104,8 @@ export async function getWrittenQuoteData(issueId: string): Promise<WrittenQuote
   const items: WrittenQuoteItem[] = (itemsRes.data || []).map((item) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = item as any
-    const lines: RawLine[] = r.lines || []
-    const labour: RawLabour[] = r.labour || []
+    const lines: RawLine[] = (r.lines || []).filter((l: RawLine) => (l.qty ?? 0) > 0)
+    const labour: RawLabour[] = (r.labour || []).filter((l: RawLabour) => (l.qty ?? 0) > 0)
 
     const linesTotal  = lines.reduce((s, l) => s + sellPrice(l.price, l.qty, l.markup_percent), 0)
     const labourTotal = labour.reduce((s, l) => s + sellPrice(l.price, l.qty, l.markup_percent), 0)

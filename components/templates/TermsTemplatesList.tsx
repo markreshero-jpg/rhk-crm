@@ -166,7 +166,7 @@ const InlineTextField = function InlineTextField({
         else if (e.key === 'Escape') { setLocal(value); e.currentTarget.blur() }
       }}
       placeholder={placeholder}
-      className={`flex-1 min-w-0 px-2 py-0.5 bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
+      className={`w-full px-2 py-0.5 bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
     />
   )
 }

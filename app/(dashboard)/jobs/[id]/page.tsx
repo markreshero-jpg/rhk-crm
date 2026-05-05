@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import JobForm from '@/components/JobForm'
 import JobQuoteTab from '@/components/JobQuoteTab'
+import WorkOrdersTab from '@/components/WorkOrdersTab'
 import Tabs from '@/components/Tabs'
 import {
   getJobById,
@@ -103,11 +104,7 @@ export default function JobWorkspacePage({
 
         {activeTab === 'quote' && <JobQuoteTab jobId={id} />}
 
-        {activeTab === 'work-orders' && (
-          <div className="text-text-subtle text-sm p-12 text-center">
-            Work Orders — coming soon
-          </div>
-        )}
+        {activeTab === 'work-orders' && <WorkOrdersTab jobId={id} />}
 
         {activeTab === 'calendar' && (
           <div className="text-text-subtle text-sm p-12 text-center">

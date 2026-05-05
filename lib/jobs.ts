@@ -47,10 +47,24 @@ export async function getAllJobs(): Promise<JobWithClient[]> {
 export async function searchJobs(query: string): Promise<JobWithClient[]> {
   if (!query.trim()) return getAllJobs()
 
+  const { data: clientMatches } = await supabase
+    .from('clients')
+    .select('id')
+    .ilike('name', `%${query}%`)
+
+  const clientIds = (clientMatches || []).map((c) => c.id)
+
+  const orFilter = [
+    `job_number.ilike.%${query}%`,
+    `title.ilike.%${query}%`,
+    `site_suburb.ilike.%${query}%`,
+    ...(clientIds.length > 0 ? [`client_id.in.(${clientIds.join(',')})`] : []),
+  ].join(',')
+
   const { data, error } = await supabase
     .from('jobs')
     .select('*, client:clients(id, name)')
-    .or(`job_number.ilike.%${query}%,title.ilike.%${query}%,site_suburb.ilike.%${query}%`)
+    .or(orFilter)
     .order('created_at', { ascending: false })
 
   if (error) throw error

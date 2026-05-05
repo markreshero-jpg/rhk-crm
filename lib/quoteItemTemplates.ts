@@ -55,6 +55,55 @@ export async function updateQuoteItemTemplate(id: string, t: Partial<QuoteItemTe
   return data
 }
 
+export async function saveQuoteItemAsTemplate(
+  quoteItemId: string,
+  templateName: string
+): Promise<QuoteItemTemplate> {
+  const template = await createQuoteItemTemplate({ name: templateName, is_active: true })
+
+  const [{ data: lines }, { data: labour }] = await Promise.all([
+    supabase.from('quote_item_lines').select('*').eq('quote_item_id', quoteItemId).order('sort', { ascending: true }),
+    supabase.from('quote_item_labour').select('*').eq('quote_item_id', quoteItemId).order('sort', { ascending: true }),
+  ])
+
+  if (lines && lines.length > 0) {
+    const { error } = await supabase.from('quote_item_line_templates').insert(
+      lines.map((l) => ({
+        parent_template_id: template.id,
+        sort: l.sort,
+        item: l.item,
+        description: l.description,
+        written_quote_text: l.written_quote_text,
+        supplier_id: l.supplier_id,
+        item_code: l.item_code,
+        price: l.price,
+        qty: l.qty,
+        markup_percent: l.markup_percent,
+        is_allowance: l.is_allowance,
+        is_active: true,
+      }))
+    )
+    if (error) throw error
+  }
+
+  if (labour && labour.length > 0) {
+    const { error } = await supabase.from('labour_line_templates').insert(
+      labour.map((l) => ({
+        parent_template_id: template.id,
+        sort: l.sort,
+        type: l.type,
+        price: l.price,
+        qty: l.qty,
+        markup_percent: l.markup_percent,
+        is_active: true,
+      }))
+    )
+    if (error) throw error
+  }
+
+  return template
+}
+
 export async function deleteQuoteItemTemplate(id: string): Promise<void> {
   // Soft delete — keeps templates referenced from older quote items working
   const { error } = await supabase

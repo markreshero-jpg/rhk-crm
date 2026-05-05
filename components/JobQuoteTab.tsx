@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink, BookmarkPlus } from 'lucide-react'
 import {
   getIssuesByJobId,
   createIssue,
@@ -17,12 +18,14 @@ import {
   updateQuoteItem,
   deleteQuoteItem,
   renumberQuoteItems,
+  duplicateQuoteItem,
   QuoteItem,
   QuoteItemWithTotal,
 } from '@/lib/quoteItems'
 import {
   getAllQuoteItemTemplates,
   importTemplateToIssue,
+  saveQuoteItemAsTemplate,
   QuoteItemTemplate,
 } from '@/lib/quoteItemTemplates'
 import {
@@ -260,6 +263,7 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
             onDeleteIssue={() => selectedIssueId && handleDeleteIssue(selectedIssueId)}
             onImportTemplate={handleImportTemplate}
             onUpdateTerms={handleUpdateTerms}
+            onRefreshItems={async () => { if (selectedIssueId) await loadQuoteItems(selectedIssueId) }}
           />
         ) : (
           <div className="text-center py-12 text-text-subtle text-sm">
@@ -283,6 +287,7 @@ function SelectedIssuePanel({
   onDeleteIssue,
   onImportTemplate,
   onUpdateTerms,
+  onRefreshItems,
 }: {
   issue: Issue
   quoteItems: QuoteItemWithTotal[]
@@ -295,9 +300,11 @@ function SelectedIssuePanel({
   onDeleteIssue: () => void
   onImportTemplate: (templateId: string, name: string) => Promise<void>
   onUpdateTerms: (text: string) => Promise<void>
+  onRefreshItems: () => Promise<void>
 }) {
   const [showImportModal, setShowImportModal] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [showDupeSaveModal, setShowDupeSaveModal] = useState(false)
   const [reportsOpen, setReportsOpen] = useState(false)
   const reportsRef = useRef<HTMLDivElement>(null)
 
@@ -356,6 +363,15 @@ function SelectedIssuePanel({
           </div>
           <button
             type="button"
+            onClick={() => setShowDupeSaveModal(true)}
+            disabled={quoteItems.length === 0}
+            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50 transition-colors"
+          >
+            <BookmarkPlus size={12} />
+            <span>Duplicate / Save Item</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors"
           >
@@ -382,6 +398,17 @@ function SelectedIssuePanel({
           </button>
         </div>
       </div>
+
+      {showDupeSaveModal && (
+        <DuplicateSaveModal
+          quoteItems={quoteItems}
+          onClose={() => setShowDupeSaveModal(false)}
+          onDuplicated={async () => {
+            await onRefreshItems()
+            setShowDupeSaveModal(false)
+          }}
+        />
+      )}
 
       {showImportModal && (
         <ImportTemplateModal
@@ -725,6 +752,149 @@ function TermsImportModal({
               {applying ? 'Applying...' : `Apply ${selectedCount > 0 ? selectedCount : ''} clause${selectedCount !== 1 ? 's' : ''}`}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ----- Duplicate / Save Item Modal -----
+
+function DuplicateSaveModal({
+  quoteItems,
+  onClose,
+  onDuplicated,
+}: {
+  quoteItems: QuoteItemWithTotal[]
+  onClose: () => void
+  onDuplicated: () => Promise<void>
+}) {
+  const router = useRouter()
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [dupingId, setDupingId] = useState<string | null>(null)
+  const [saveNames, setSaveNames] = useState<Record<string, string>>({})
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDuplicate(item: QuoteItemWithTotal) {
+    setDupingId(item.id)
+    setError(null)
+    try {
+      await duplicateQuoteItem(item.id)
+      await onDuplicated()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Duplicate failed')
+    } finally {
+      setDupingId(null)
+    }
+  }
+
+  async function handleSave(item: QuoteItemWithTotal) {
+    const name = saveNames[item.id] ?? item.name ?? ''
+    if (!name.trim()) return
+    setSavingId(item.id)
+    setError(null)
+    try {
+      const template = await saveQuoteItemAsTemplate(item.id, name.trim())
+      router.push(`/templates/${template.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+      setSavingId(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-surface border border-border rounded-lg shadow-xl w-[560px] max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-medium text-text">Duplicate or Save Item to Templates</h3>
+          <p className="text-xs text-text-subtle mt-0.5">
+            Duplicate keeps it in this quote. Save adds it to your templates library.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {error && (
+            <div className="mx-4 mt-3 px-3 py-2 text-xs text-danger bg-danger-bg border border-danger-border rounded-md">
+              {error}
+            </div>
+          )}
+          <ul className="divide-y divide-border">
+            {quoteItems.map((item) => {
+              const isActive = activeId === item.id
+              const saveName = saveNames[item.id] ?? item.name ?? ''
+              const isDuping = dupingId === item.id
+              const isSaving = savingId === item.id
+              return (
+                <li key={item.id} className="px-5 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-text truncate block">{item.name || 'Untitled item'}</span>
+                      {item.qty > 1 && (
+                        <span className="text-xs text-text-subtle">× {item.qty}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicate(item)}
+                        disabled={isDuping || isSaving}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted bg-surface border border-border-strong rounded-md hover:bg-surface-hover disabled:opacity-50 transition-colors"
+                      >
+                        <Copy size={12} />
+                        {isDuping ? 'Duplicating…' : 'Duplicate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveId(isActive ? null : item.id)}
+                        disabled={isDuping || isSaving}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border transition-colors disabled:opacity-50 ${
+                          isActive
+                            ? 'bg-accent text-accent-text border-accent'
+                            : 'text-text-muted bg-surface border-border-strong hover:bg-surface-hover'
+                        }`}
+                      >
+                        <BookmarkPlus size={12} />
+                        Save as Template
+                      </button>
+                    </div>
+                  </div>
+
+                  {isActive && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={saveName}
+                        onChange={(e) => setSaveNames((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(item) }}
+                        placeholder="Template name"
+                        autoFocus
+                        className="flex-1 px-3 py-1.5 text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSave(item)}
+                        disabled={!saveName.trim() || isSaving}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
+                      >
+                        <BookmarkPlus size={12} />
+                        {isSaving ? 'Saving…' : 'Save & Go to Template →'}
+                      </button>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+
+        <div className="px-5 py-3 border-t border-border flex justify-end">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text">
+            Close
+          </button>
         </div>
       </div>
     </div>
