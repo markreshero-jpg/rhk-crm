@@ -2,19 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getDashboardData, DashboardData } from '@/lib/dashboard'
+import { getDashboardData, DashboardData, WorkOrderSummary } from '@/lib/dashboard'
 
-const PIPELINE_STAGES = [
-  'Inquiry',
-  'Quote Sent',
-  'Quote Accepted',
-  'In Production',
-  'Completed',
-]
+const PIPELINE_STAGES = ['Inquiry', 'Quote Sent', 'Quote Accepted', 'In Production', 'Completed']
+
+const woStatusStyles: Record<string, string> = {
+  'Draft':       'bg-surface-muted text-text-muted border-border',
+  'Ready':       'bg-info-bg text-info border-info-border',
+  'In Progress': 'bg-warning-bg text-warning border-warning-border',
+}
 
 function fmtCurrency(value: number | null | undefined): string {
   if (value == null) return '—'
   return '$' + Math.round(value).toLocaleString('en-AU')
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
 }
 
 function statusBadgeClass(status: string | null): string {
@@ -34,23 +39,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDashboardData()
-      .then(setData)
-      .finally(() => setLoading(false))
+    getDashboardData().then(setData).finally(() => setLoading(false))
   }, [])
 
   const inProduction = data?.jobsByStatus['In Production'] ?? 0
   const quotesOut    = data?.jobsByStatus['Quote Sent'] ?? 0
   const inquiries    = data?.jobsByStatus['Inquiry'] ?? 0
 
-  const recentJobsTotal = (data?.recentJobs ?? []).reduce(
-    (sum, j) => sum + (j.total_ex_gst ?? 0),
-    0
-  )
-  const inProductionTotal = (data?.inProductionJobs ?? []).reduce(
-    (sum, j) => sum + (j.total_ex_gst ?? 0),
-    0
-  )
+  const inProductionTotal = (data?.inProductionJobs ?? []).reduce((s, j) => s + (j.total_ex_gst ?? 0), 0)
 
   return (
     <div className="p-10 max-w-7xl">
@@ -97,9 +93,7 @@ export default function DashboardPage() {
 
           {/* Pipeline strip */}
           <div className="bg-surface border border-border rounded-lg mb-6 px-5 pt-4 pb-5">
-            <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-4">
-              Job Pipeline
-            </p>
+            <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-4">Job Pipeline</p>
             <div className="flex gap-2">
               {PIPELINE_STAGES.map((stage) => {
                 const count = data?.jobsByStatus[stage] ?? 0
@@ -108,13 +102,9 @@ export default function DashboardPage() {
                   <Link
                     key={stage}
                     href="/jobs"
-                    className={`flex-1 flex flex-col items-center gap-1.5 px-3 py-3 rounded-md border transition-colors hover:bg-surface-hover ${
-                      isActive ? 'border-border-strong' : 'border-border'
-                    }`}
+                    className={`flex-1 flex flex-col items-center gap-1.5 px-3 py-3 rounded-md border transition-colors hover:bg-surface-hover ${isActive ? 'border-border-strong' : 'border-border'}`}
                   >
-                    <span className={`text-2xl font-semibold tracking-tight ${isActive ? 'text-text' : 'text-text-faint'}`}>
-                      {count}
-                    </span>
+                    <span className={`text-2xl font-semibold tracking-tight ${isActive ? 'text-text' : 'text-text-faint'}`}>{count}</span>
                     <span className="text-[10px] text-text-subtle text-center leading-tight">{stage}</span>
                   </Link>
                 )
@@ -123,11 +113,7 @@ export default function DashboardPage() {
                 const count = data?.jobsByStatus[stage] ?? 0
                 if (!count) return null
                 return (
-                  <Link
-                    key={stage}
-                    href="/jobs"
-                    className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-md border border-border transition-colors hover:bg-surface-hover"
-                  >
+                  <Link key={stage} href="/jobs" className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-md border border-border transition-colors hover:bg-surface-hover">
                     <span className="text-2xl font-semibold tracking-tight text-text-faint">{count}</span>
                     <span className="text-[10px] text-text-faint text-center leading-tight">{stage}</span>
                   </Link>
@@ -136,108 +122,88 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Two-column bottom section */}
+          {/* Main content — 3 columns */}
           <div className="grid grid-cols-3 gap-6">
-            {/* Recent jobs */}
-            <div className="col-span-2 bg-surface border border-border rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Recent Jobs</p>
-                <Link href="/jobs" className="text-xs text-text-muted hover:text-text transition-colors">
-                  View all
-                </Link>
-              </div>
 
-              {(data?.recentJobs ?? []).length === 0 ? (
-                <p className="px-5 py-10 text-sm text-text-faint text-center italic">No jobs yet</p>
+            {/* Work Orders */}
+            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Active Work Orders</p>
+                <span className="text-xs text-text-faint">{(data?.activeWorkOrders ?? []).length}</span>
+              </div>
+              {(data?.activeWorkOrders ?? []).length === 0 ? (
+                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No active work orders</p>
+              ) : (
+                <div className="divide-y divide-border overflow-y-auto">
+                  {(data?.activeWorkOrders ?? []).map((wo) => (
+                    <WorkOrderRow key={wo.id} wo={wo} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* In Production */}
+            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+              <div className="px-5 py-3.5 border-b border-border shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">In Production</p>
+              </div>
+              {(data?.inProductionJobs ?? []).length === 0 ? (
+                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No active jobs</p>
               ) : (
                 <>
-                  <div className="divide-y divide-border">
-                    {(data?.recentJobs ?? []).map((job) => (
-                      <Link
-                        key={job.id}
-                        href={`/jobs/${job.id}`}
-                        className="flex items-center gap-4 px-5 py-3 hover:bg-surface-hover transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[11px] text-text-subtle font-mono shrink-0">{job.job_number}</span>
-                            <span className="text-sm text-text truncate">{job.title || 'Untitled'}</span>
-                          </div>
-                          <p className="text-xs text-text-muted mt-0.5">
-                            {job.client_name}
-                            {job.site_suburb ? ` · ${job.site_suburb}` : ''}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                  <div className="divide-y divide-border overflow-y-auto flex-1">
+                    {(data?.inProductionJobs ?? []).map((job) => (
+                      <Link key={job.id} href={`/jobs/${job.id}`} className="block px-5 py-3 hover:bg-surface-hover transition-colors">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm text-text truncate">{job.title || 'Untitled'}</p>
                           {job.total_ex_gst != null && (
-                            <span className="text-sm font-medium text-text tabular-nums">
-                              {fmtCurrency(job.total_ex_gst)}
-                            </span>
+                            <span className="text-xs font-medium text-text-muted tabular-nums shrink-0">{fmtCurrency(job.total_ex_gst)}</span>
                           )}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${statusBadgeClass(job.status)}`}>
-                            {job.status}
-                          </span>
                         </div>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {job.client_name}{job.site_suburb ? ` · ${job.site_suburb}` : ''}
+                        </p>
                       </Link>
                     ))}
                   </div>
-
-                  {/* Total row */}
-                  <div className="flex items-center justify-between px-5 py-3 bg-surface-muted border-t border-border-strong">
-                    <span className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
-                      Total (shown · ex GST)
-                    </span>
-                    <span className="text-sm font-semibold text-text tabular-nums">
-                      {fmtCurrency(recentJobsTotal || null)}
-                    </span>
+                  <div className="flex items-center justify-between px-5 py-3 bg-surface-muted border-t border-border-strong shrink-0">
+                    <span className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Total · ex GST</span>
+                    <span className="text-sm font-semibold text-text tabular-nums">{fmtCurrency(inProductionTotal || null)}</span>
                   </div>
                 </>
               )}
             </div>
 
-            {/* In Production */}
-            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-border">
-                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">In Production</p>
+            {/* Recent Jobs */}
+            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Recent Jobs</p>
+                <Link href="/jobs" className="text-xs text-text-muted hover:text-text transition-colors">View all</Link>
               </div>
-
-              {(data?.inProductionJobs ?? []).length === 0 ? (
-                <p className="px-5 py-10 text-sm text-text-faint text-center italic">No active jobs</p>
+              {(data?.recentJobs ?? []).length === 0 ? (
+                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No jobs yet</p>
               ) : (
-                <>
-                  <div className="divide-y divide-border">
-                    {(data?.inProductionJobs ?? []).map((job) => (
-                      <Link
-                        key={job.id}
-                        href={`/jobs/${job.id}`}
-                        className="block px-5 py-3 hover:bg-surface-hover transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm text-text truncate">{job.title || 'Untitled'}</p>
-                          {job.total_ex_gst != null && (
-                            <span className="text-xs font-medium text-text-muted tabular-nums shrink-0">
-                              {fmtCurrency(job.total_ex_gst)}
-                            </span>
-                          )}
+                <div className="divide-y divide-border overflow-y-auto flex-1">
+                  {(data?.recentJobs ?? []).map((job) => (
+                    <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11px] text-text-subtle font-mono shrink-0">{job.job_number}</span>
+                          <span className="text-sm text-text truncate">{job.title || 'Untitled'}</span>
                         </div>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          {job.client_name}
-                          {job.site_suburb ? ` · ${job.site_suburb}` : ''}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-
-                  {/* In Production total */}
-                  <div className="flex items-center justify-between px-5 py-3 bg-surface-muted border-t border-border-strong">
-                    <span className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
-                      Total · ex GST
-                    </span>
-                    <span className="text-sm font-semibold text-text tabular-nums">
-                      {fmtCurrency(inProductionTotal || null)}
-                    </span>
-                  </div>
-                </>
+                        <p className="text-xs text-text-muted mt-0.5 truncate">{job.client_name}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {job.total_ex_gst != null && (
+                          <span className="text-xs font-medium text-text tabular-nums">{fmtCurrency(job.total_ex_gst)}</span>
+                        )}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${statusBadgeClass(job.status)}`}>
+                          {job.status}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -247,48 +213,49 @@ export default function DashboardPage() {
   )
 }
 
+function WorkOrderRow({ wo }: { wo: WorkOrderSummary }) {
+  return (
+    <Link href={`/jobs/${wo.job_id}?tab=work-orders`} className="block px-5 py-3 hover:bg-surface-hover transition-colors">
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <div className="flex items-center gap-2 min-w-0">
+          {wo.work_order_number && (
+            <span className="text-[10px] font-mono text-text-subtle shrink-0">{wo.work_order_number}</span>
+          )}
+          <span className="text-sm text-text truncate">{wo.title || 'Untitled'}</span>
+        </div>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${woStatusStyles[wo.status] || 'bg-surface-muted text-text-muted border-border'}`}>
+          {wo.status}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-text-muted truncate">
+          {wo.client_name && <span>{wo.client_name} · </span>}
+          {wo.job_number && <span className="font-mono">{wo.job_number}</span>}
+          {wo.job_title && <span> · {wo.job_title}</span>}
+        </p>
+        {(wo.scheduled_start || wo.scheduled_end) && (
+          <p className="text-[11px] text-text-subtle shrink-0 tabular-nums">
+            {fmtDate(wo.scheduled_start)}{wo.scheduled_end ? ` – ${fmtDate(wo.scheduled_end)}` : ''}
+          </p>
+        )}
+      </div>
+    </Link>
+  )
+}
+
 type Variant = 'default' | 'accent' | 'info'
 
-function StatCard({
-  label,
-  display,
-  sub,
-  href,
-  variant = 'default',
-}: {
-  label: string
-  display: string
-  sub: string
-  href: string
-  variant?: Variant
+function StatCard({ label, display, sub, href, variant = 'default' }: {
+  label: string; display: string; sub: string; href: string; variant?: Variant
 }) {
   const styles: Record<Variant, { wrap: string; label: string; value: string; sub: string }> = {
-    default: {
-      wrap:  'bg-surface border-border',
-      label: 'text-text-subtle',
-      value: 'text-text',
-      sub:   'text-text-subtle',
-    },
-    accent: {
-      wrap:  'bg-accent border-transparent',
-      label: 'text-accent-text-muted',
-      value: 'text-accent-text',
-      sub:   'text-accent-text-muted',
-    },
-    info: {
-      wrap:  'bg-info-bg border-info-border',
-      label: 'text-info',
-      value: 'text-info',
-      sub:   'text-info',
-    },
+    default: { wrap: 'bg-surface border-border', label: 'text-text-subtle', value: 'text-text', sub: 'text-text-subtle' },
+    accent:  { wrap: 'bg-accent border-transparent', label: 'text-accent-text-muted', value: 'text-accent-text', sub: 'text-accent-text-muted' },
+    info:    { wrap: 'bg-info-bg border-info-border', label: 'text-info', value: 'text-info', sub: 'text-info' },
   }
   const s = styles[variant]
-
   return (
-    <Link
-      href={href}
-      className={`block rounded-lg border px-5 py-4 hover:opacity-90 transition-opacity ${s.wrap}`}
-    >
+    <Link href={href} className={`block rounded-lg border px-5 py-4 hover:opacity-90 transition-opacity ${s.wrap}`}>
       <p className={`text-[10px] uppercase tracking-widest font-medium mb-3 ${s.label}`}>{label}</p>
       <p className={`text-3xl font-semibold tracking-tight tabular-nums ${s.value}`}>{display}</p>
       <p className={`text-xs mt-1.5 ${s.sub}`}>{sub}</p>

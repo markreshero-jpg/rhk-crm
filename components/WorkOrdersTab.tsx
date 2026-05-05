@@ -222,11 +222,11 @@ function WorkOrderPanel({
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-3">
             <Label>Scheduled Start</Label>
-            <input type="datetime-local" defaultValue={workOrder.scheduled_start?.slice(0, 16) || ''} onBlur={blurSave('scheduled_start')} className={inputCls} />
+            <input type="date" defaultValue={workOrder.scheduled_start?.slice(0, 10) || ''} onBlur={blurSave('scheduled_start')} className={inputCls} />
           </div>
           <div className="col-span-3">
             <Label>Scheduled End</Label>
-            <input type="datetime-local" defaultValue={workOrder.scheduled_end?.slice(0, 16) || ''} onBlur={blurSave('scheduled_end')} className={inputCls} />
+            <input type="date" defaultValue={workOrder.scheduled_end?.slice(0, 10) || ''} onBlur={blurSave('scheduled_end')} className={inputCls} />
           </div>
           <div className="col-span-2">
             <Label>Revision</Label>

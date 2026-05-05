@@ -12,6 +12,19 @@ export type JobSummary = {
   total_ex_gst: number | null
 }
 
+export type WorkOrderSummary = {
+  id: string
+  work_order_number: string | null
+  title: string | null
+  status: string
+  scheduled_start: string | null
+  scheduled_end: string | null
+  job_id: string
+  job_number: string | null
+  job_title: string | null
+  client_name: string | null
+}
+
 export type DashboardData = {
   jobsByStatus: Record<string, number>
   totalJobs: number
@@ -20,6 +33,7 @@ export type DashboardData = {
   quotesOutValue: number | null
   recentJobs: JobSummary[]
   inProductionJobs: JobSummary[]
+  activeWorkOrders: WorkOrderSummary[]
 }
 
 // Pick the most relevant issue total: prefer Accepted, fall back to latest issue number
@@ -32,7 +46,7 @@ function getBestTotal(issues: { total_ex_gst: number | null; status: string; iss
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-  const [jobsRes, clientsRes] = await Promise.all([
+  const [jobsRes, clientsRes, workOrdersRes] = await Promise.all([
     supabase
       .from('jobs')
       .select('id, job_number, title, status, site_suburb, created_at, client:clients(name), issues(total_ex_gst, status, issue_number)')
@@ -40,10 +54,17 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from('clients')
       .select('id', { count: 'exact', head: true }),
+    supabase
+      .from('work_orders')
+      .select('id, work_order_number, title, status, scheduled_start, scheduled_end, job:jobs(id, job_number, title, client:clients(name))')
+      .in('status', ['Draft', 'Ready', 'In Progress'])
+      .order('scheduled_start', { ascending: true })
+      .limit(15),
   ])
 
   if (jobsRes.error) throw jobsRes.error
   if (clientsRes.error) throw clientsRes.error
+  if (workOrdersRes.error) throw workOrdersRes.error
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jobs = (jobsRes.data || []) as any[]
@@ -72,6 +93,20 @@ export async function getDashboardData(): Promise<DashboardData> {
   const inProductionJobs = jobs.filter((j) => j.status === 'In Production')
   const quotesOutJobs    = jobs.filter((j) => j.status === 'Quote Sent')
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeWorkOrders: WorkOrderSummary[] = (workOrdersRes.data || []).map((wo: any) => ({
+    id: wo.id,
+    work_order_number: wo.work_order_number,
+    title: wo.title,
+    status: wo.status,
+    scheduled_start: wo.scheduled_start,
+    scheduled_end: wo.scheduled_end,
+    job_id: wo.job?.id ?? '',
+    job_number: wo.job?.job_number ?? null,
+    job_title: wo.job?.title ?? null,
+    client_name: wo.job?.client?.name ?? null,
+  }))
+
   return {
     jobsByStatus,
     totalJobs: jobs.length,
@@ -80,5 +115,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     quotesOutValue:    quotesOutJobs.length    ? sumValues(quotesOutJobs)    : null,
     recentJobs:        jobs.slice(0, 8).map(toSummary),
     inProductionJobs:  inProductionJobs.map(toSummary),
+    activeWorkOrders,
   }
 }
