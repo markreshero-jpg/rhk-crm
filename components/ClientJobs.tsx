@@ -55,56 +55,36 @@ export default function ClientJobs({ clientId }: { clientId: string }) {
           </Link>
         </div>
       ) : (
-        <div className="border border-border rounded-md overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
-                <th className="px-4 py-2.5 font-medium">Job #</th>
-                <th className="px-4 py-2.5 font-medium">Title</th>
-                <th className="px-4 py-2.5 font-medium">Suburb</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium w-8"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {jobs.map((job) => (
-                <tr
-                  key={job.id}
-                  className="hover:bg-surface-hover transition-colors group"
-                >
-                  <td className="px-4 py-2.5 text-sm font-mono text-text-muted whitespace-nowrap">
-                    <Link href={`/jobs/${job.id}`} className="block">
-                      {job.job_number}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-text">
-                    {job.title || '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-text-muted">
-                    {job.site_suburb || '—'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {job.status ? (
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${
-                          statusStyles[job.status] || 'bg-surface-muted text-text-muted border-border'
-                        }`}
-                      >
-                        {job.status}
-                      </span>
-                    ) : (
-                      <span className="text-text-faint text-sm">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-text-faint group-hover:text-text">
-                    <Link href={`/jobs/${job.id}`}>
-                      <ChevronRight size={16} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="border border-border rounded-md overflow-hidden divide-y divide-border">
+          {jobs.map((job) => (
+            <Link
+              key={job.id}
+              href={`/jobs/${job.id}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors group"
+            >
+              <div className="flex-1 flex items-center gap-2 min-w-0 text-sm">
+                <span className="font-mono text-text-subtle shrink-0">{job.job_number}</span>
+                {job.client?.name && (
+                  <>
+                    <span className="text-text-faint">·</span>
+                    <span className="text-text-muted shrink-0">{job.client.name}</span>
+                  </>
+                )}
+                <>
+                  <span className="text-text-faint">·</span>
+                  <span className="text-text font-medium truncate">{job.title || 'Untitled'}</span>
+                </>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {job.status && (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusStyles[job.status] || 'bg-surface-muted text-text-muted border-border'}`}>
+                    {job.status}
+                  </span>
+                )}
+                <ChevronRight size={16} className="text-text-faint group-hover:text-text transition-colors" />
+              </div>
+            </Link>
+          ))}
         </div>
       )}
     </div>

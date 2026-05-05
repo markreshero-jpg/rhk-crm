@@ -125,7 +125,7 @@ export default function WrittenQuotePage({ params }: { params: Promise<{ issueId
 
       {/* ── Quote document ── */}
       <div className="no-print h-16" /> {/* spacer for fixed bar */}
-      <div className="bg-gray-100 min-h-screen py-8 no-print-bg">
+      <div className="no-print bg-gray-100 min-h-screen py-8">
         <div
           className="quote-doc bg-white mx-auto shadow-lg"
           style={{ maxWidth: '794px', padding: '30mm 20mm 20mm' }}
@@ -241,9 +241,9 @@ function QuoteDocument({
           <div style={{ color: '#aaa', fontSize: '13px' }}>No items on this quote.</div>
         ) : (
           items.map((item, idx) => (
-            <div key={item.id} className="avoid-break" style={{ marginBottom: '28px' }}>
+            <div key={item.id} className="avoid-break" style={{ marginBottom: '14px' }}>
               {/* Item header row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderBottom: '1px solid #eee', paddingBottom: '6px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '5px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
                   <span style={{ fontSize: '11px', fontFamily: 'system-ui, sans-serif', color: '#999', fontWeight: 600, minWidth: '18px' }}>
                     {idx + 1}.
@@ -266,7 +266,7 @@ function QuoteDocument({
               {item.written_lines.length > 0 ? (
                 <ul style={{ margin: '0', padding: '0 0 0 28px', listStyle: 'none' }}>
                   {item.written_lines.map((line, li) => (
-                    <li key={li} style={{ fontSize: '13px', color: '#333', marginBottom: '5px', position: 'relative' }}>
+                    <li key={li} style={{ fontSize: '13px', color: '#333', marginBottom: '1px', position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '-16px', color: '#bbb' }}>•</span>
                       {line.text}
                       {line.is_allowance && (

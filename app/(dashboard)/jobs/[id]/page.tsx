@@ -74,16 +74,17 @@ export default function JobWorkspacePage({
         <ChevronLeft size={14} /> Back to jobs
       </Link>
 
-      <p className="text-xs uppercase tracking-widest text-text-subtle mb-2">
-        {job.job_number}
-        {job.client?.name && ` · ${job.client.name}`}
-      </p>
-      <h2 className="text-4xl font-medium text-text tracking-tight mb-2">
-        {job.title || 'Untitled job'}
+      <h2 className="text-4xl font-medium tracking-tight mb-8 flex items-baseline gap-3 flex-wrap">
+        <span className="text-text-subtle">{job.job_number}</span>
+        {job.client?.name && (
+          <>
+            <span className="text-text-faint font-light">·</span>
+            <span className="text-text-muted">{job.client.name}</span>
+          </>
+        )}
+        <span className="text-text-faint font-light">·</span>
+        <span className="text-text">{job.title || 'Untitled job'}</span>
       </h2>
-      <p className="text-text-muted mt-2 mb-8 text-sm">
-        {job.status || 'No status set'}
-      </p>
 
       <Tabs tabs={tabs} activeTab={activeTab}>
         <div className={activeTab !== 'details' ? 'hidden' : ''}>

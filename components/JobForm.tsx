@@ -49,6 +49,7 @@ export default function JobForm({
     site_postcode: initialData.site_postcode || '',
     same_as_client_address: initialData.same_as_client_address ?? false,
     notes: initialData.notes || '',
+    internal_notes: initialData.internal_notes || '',
   })
 
   const isNew = !jobId
@@ -220,6 +221,24 @@ export default function JobForm({
             placeholder="Short description of the job"
           />
         </Field>
+      </section>
+
+      {/* Internal Notes */}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Internal Notes</h3>
+          <span className="text-[10px] uppercase tracking-widest font-medium px-1.5 py-0.5 rounded bg-warning-bg text-warning border border-warning-border">
+            Internal only — not printed
+          </span>
+        </div>
+        <textarea
+          value={formData.internal_notes || ''}
+          onChange={(e) => handleChange('internal_notes', e.target.value)}
+          onBlur={handleBlur('internal_notes')}
+          rows={3}
+          className={inputClass + ' resize-none'}
+          placeholder="Staff notes, pricing strategy, special instructions — never shown to clients..."
+        />
       </section>
 
       {/* Client contact */}

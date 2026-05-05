@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Plus, Copy, Trash2, ChevronRight, ListOrdered, FileText, ExternalLink } from 'lucide-react'
+import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink } from 'lucide-react'
 import {
   getIssuesByJobId,
   createIssue,
@@ -298,6 +298,19 @@ function SelectedIssuePanel({
 }) {
   const [showImportModal, setShowImportModal] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [reportsOpen, setReportsOpen] = useState(false)
+  const reportsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!reportsOpen) return
+    function handleClick(e: MouseEvent) {
+      if (reportsRef.current && !reportsRef.current.contains(e.target as Node)) {
+        setReportsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [reportsOpen])
 
   return (
     <div>
@@ -306,16 +319,41 @@ function SelectedIssuePanel({
           Quote Items
         </h3>
         <div className="flex gap-2">
-          <a
-            href={`/print/quote/${issue.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
-            title="Open printable written quote"
-          >
-            <ExternalLink size={12} />
-            <span>Written Quote</span>
-          </a>
+          <div ref={reportsRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setReportsOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
+            >
+              <FileText size={12} />
+              <span>Reports</span>
+              <ChevronDown size={11} className={`transition-transform ${reportsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {reportsOpen && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border-strong rounded-md shadow-lg z-20 py-1">
+                <a
+                  href={`/print/quote/${issue.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setReportsOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors"
+                >
+                  <ExternalLink size={11} />
+                  Written Quote
+                </a>
+                <a
+                  href={`/print/item-summary/${issue.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setReportsOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors"
+                >
+                  <ExternalLink size={11} />
+                  Item Summary
+                </a>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setShowImportModal(true)}
@@ -592,8 +630,8 @@ function TermsImportModal({
   async function handleApply() {
     const ordered = clauses.filter((c) => selected.has(c.id))
     const text = ordered
-      .map((c) => `${c.title}\n\n${c.body}`)
-      .join('\n\n---\n\n')
+      .map((c) => c.title)
+      .join('\n')
     setApplying(true)
     try {
       await onApply(text)

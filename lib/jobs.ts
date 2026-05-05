@@ -24,6 +24,7 @@ export type Job = {
   site_postcode: string | null
   same_as_client_address: boolean
   notes: string | null
+  internal_notes: string | null
 }
 
 export type JobWithClient = Job & {

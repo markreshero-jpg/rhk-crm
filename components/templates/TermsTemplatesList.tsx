@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Plus, Trash2, GripVertical } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import {
   getAllTermsTemplates,
   createTermsTemplate,
@@ -113,24 +113,16 @@ function ClauseCard({
   }, [shouldFocus, onFocused])
 
   return (
-    <div className="bg-surface border border-border rounded-lg overflow-hidden">
-      {/* Card header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-surface-muted">
-        <GripVertical size={14} className="text-text-faint shrink-0" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-[11px] font-mono text-text-faint w-6 shrink-0">{clause.sort}</span>
+    <div className="bg-surface border border-border rounded-md">
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <span className="text-[11px] font-mono text-text-faint w-6 shrink-0">{clause.sort}</span>
+        <div className="flex-1 min-w-0">
           <InlineTextField
             ref={titleRef}
             value={clause.title}
             onSave={(v) => onUpdate(clause.id, 'title', v)}
             placeholder="Clause title (e.g. Payment Terms)"
             className="font-medium text-text text-sm"
-          />
-          <InlineTextField
-            value={clause.category || ''}
-            onSave={(v) => onUpdate(clause.id, 'category', v)}
-            placeholder="Category (optional)"
-            className="text-text-muted text-xs w-40 shrink-0"
           />
         </div>
         <button
@@ -141,29 +133,7 @@ function ClauseCard({
           <Trash2 size={14} />
         </button>
       </div>
-
-      {/* Body textarea */}
-      <BodyField
-        value={clause.body}
-        onSave={(v) => onUpdate(clause.id, 'body', v)}
-      />
     </div>
-  )
-}
-
-function BodyField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
-  const [local, setLocal] = useState(value)
-  useEffect(() => { setLocal(value) }, [value])
-
-  return (
-    <textarea
-      value={local}
-      onChange={(e) => setLocal(e.target.value)}
-      onBlur={() => { if (local !== value) onSave(local) }}
-      rows={4}
-      placeholder="Type the full clause text here..."
-      className="w-full px-4 py-3 text-sm text-text bg-transparent resize-none focus:outline-none focus:bg-surface-muted/50 placeholder:text-text-faint"
-    />
   )
 }
 
