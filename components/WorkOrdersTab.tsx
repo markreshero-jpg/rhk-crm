@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Plus, Trash2, Lock, Unlock, ChevronRight, Download, ShoppingCart } from 'lucide-react'
 import {
-  WorkOrder, WorkOrderLine, LineGroup,
+  WorkOrder, WorkOrderLine, LineGroup, LineStatusOption,
   WORK_ORDER_STATUSES,
   getWorkOrdersByJobId, createWorkOrder, updateWorkOrder, deleteWorkOrder,
   getWorkOrderLinesByWorkOrderId, createWorkOrderLine, updateWorkOrderLine, deleteWorkOrderLine,
   getQuoteItemsForImport, QuoteItemForImport,
-  importQuoteItemsToWorkOrder, groupWorkOrderLines,
+  importQuoteItemsToWorkOrder, groupWorkOrderLines, getLineStatusOptions,
 } from '@/lib/workOrders'
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
+import { stageBadgeStyles } from '@/lib/stageStyles'
 import { getIssuesByJobId, Issue } from '@/lib/issues'
 import { formatCurrency } from '@/lib/format'
 
@@ -21,6 +22,7 @@ const statusStyles: Record<string, string> = {
   'Completed':   'bg-success-bg text-success border-success-border',
   'Cancelled':   'bg-surface-muted text-text-faint border-border',
 }
+
 
 // ── Main tab ─────────────────────────────────────────────────────────────────
 
@@ -139,16 +141,19 @@ function WorkOrderPanel({
 }) {
   const [lines, setLines] = useState<WorkOrderLine[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [statusOptions, setStatusOptions] = useState<LineStatusOption[]>([])
   const [loadingLines, setLoadingLines] = useState(true)
   const [showImportModal, setShowImportModal] = useState(false)
 
   const loadLines = useCallback(async () => {
-    const [l, s] = await Promise.all([
+    const [l, s, opts] = await Promise.all([
       getWorkOrderLinesByWorkOrderId(workOrder.id),
       getAllSuppliers(),
+      getLineStatusOptions(),
     ])
     setLines(l)
     setSuppliers(s)
+    setStatusOptions(opts)
     setLoadingLines(false)
   }, [workOrder.id])
 
@@ -163,6 +168,18 @@ function WorkOrderPanel({
 
   async function handleUpdateLine(id: string, patch: Partial<WorkOrderLine>) {
     await updateWorkOrderLine(id, patch)
+    await loadLines()
+  }
+
+  async function handleUpdateGroupStatus(groupName: string, patch: { stage: string; status: string }) {
+    const groupLines = lines.filter((l) => (l.group_name || 'Other') === groupName)
+    await Promise.all(groupLines.map((l) => updateWorkOrderLine(l.id, patch)))
+    await loadLines()
+  }
+
+  async function handleToggleGroupPO(groupName: string, value: boolean) {
+    const groupLines = lines.filter((l) => (l.group_name || 'Other') === groupName)
+    await Promise.all(groupLines.map((l) => updateWorkOrderLine(l.id, { include_on_po: value })))
     await loadLines()
   }
 
@@ -295,8 +312,11 @@ function WorkOrderPanel({
                 key={group.name}
                 group={group}
                 suppliers={suppliers}
+                statusOptions={statusOptions}
                 onUpdateLine={handleUpdateLine}
                 onDeleteLine={handleDeleteLine}
+                onUpdateGroupStatus={(patch) => handleUpdateGroupStatus(group.name, patch)}
+                onToggleGroupPO={(value) => handleToggleGroupPO(group.name, value)}
               />
             ))}
 
@@ -360,34 +380,89 @@ function WorkOrderPanel({
 // ── Item Group (expandable) ───────────────────────────────────────────────────
 
 function ItemGroup({
-  group, suppliers, onUpdateLine, onDeleteLine,
+  group, suppliers, statusOptions, onUpdateLine, onDeleteLine, onUpdateGroupStatus, onToggleGroupPO,
 }: {
   group: LineGroup
   suppliers: Supplier[]
+  statusOptions: LineStatusOption[]
   onUpdateLine: (id: string, patch: Partial<WorkOrderLine>) => void
   onDeleteLine: (id: string) => void
+  onUpdateGroupStatus: (patch: { stage: string; status: string }) => void
+  onToggleGroupPO: (value: boolean) => void
 }) {
   const [expanded, setExpanded] = useState(true)
-  const poCount = group.lines.filter((l) => l.include_on_po).length
+  const checkboxRef = useRef<HTMLInputElement>(null)
+
+  const allChecked  = group.lines.length > 0 && group.lines.every((l) => l.include_on_po)
+  const someChecked = group.lines.some((l) => l.include_on_po)
+  const poCount     = group.lines.filter((l) => l.include_on_po).length
+
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = someChecked && !allChecked
+    }
+  }, [someChecked, allChecked])
+
+  const firstLine = group.lines[0]
+  const currentStage = firstLine?.stage || 'Admin'
+  const currentStatus = firstLine?.status || 'Not Started'
+  const stages = Array.from(new Set(statusOptions.map((o) => o.stage)))
+  const currentOptionId = statusOptions.find((o) => o.stage === currentStage && o.status === currentStatus)?.id || ''
 
   return (
     <div className="border border-border rounded-md overflow-hidden">
       {/* Group header */}
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        className="w-full flex items-center gap-3 px-4 py-2.5 bg-surface-muted hover:bg-surface-hover transition-colors text-left"
-      >
-        <ChevronRight size={14} className={`text-text-subtle shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-        <span className="flex-1 text-sm font-medium text-text truncate">{group.name}</span>
-        <span className="text-xs text-text-muted shrink-0">{group.lines.length} line{group.lines.length !== 1 ? 's' : ''}</span>
-        {poCount > 0 && (
-          <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent text-accent-text shrink-0">
-            {poCount} on PO
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-muted">
+        {/* Select-all checkbox */}
+        <input
+          ref={checkboxRef}
+          type="checkbox"
+          checked={allChecked}
+          onChange={() => onToggleGroupPO(!allChecked)}
+          title={allChecked ? 'Deselect all for PO' : 'Select all for PO'}
+          className="accent-accent shrink-0 cursor-pointer"
+        />
+
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left hover:opacity-70 transition-opacity"
+        >
+          <ChevronRight size={14} className={`text-text-subtle shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+          <span className="text-sm font-medium text-text truncate">{group.name}</span>
+          <span className="text-xs text-text-muted shrink-0">{group.lines.length} line{group.lines.length !== 1 ? 's' : ''}</span>
+          {poCount > 0 && (
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent text-accent-text shrink-0">
+              {poCount} on PO
+            </span>
+          )}
+        </button>
+
+        {/* Status controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium leading-tight ${stageBadgeStyles[currentStage] || 'bg-surface-muted text-text-muted'}`}>
+            {currentStage}
           </span>
-        )}
-        <span className="text-sm font-semibold text-text shrink-0 ml-2">{formatCurrency(group.total)}</span>
-      </button>
+          <select
+            value={currentOptionId}
+            onChange={(e) => {
+              const opt = statusOptions.find((o) => o.id === e.target.value)
+              if (opt) onUpdateGroupStatus({ stage: opt.stage, status: opt.status })
+            }}
+            className="text-xs bg-surface border border-border-strong rounded px-2 py-1 focus:outline-none focus:border-accent text-text"
+          >
+            {stages.map((stage) => (
+              <optgroup key={stage} label={stage}>
+                {statusOptions.filter((o) => o.stage === stage).map((o) => (
+                  <option key={o.id} value={o.id}>{o.status}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        <span className="text-sm font-semibold text-text shrink-0">{formatCurrency(group.total)}</span>
+      </div>
 
       {/* Lines table */}
       {expanded && (

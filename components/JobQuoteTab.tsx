@@ -358,6 +358,16 @@ function SelectedIssuePanel({
                   <ExternalLink size={11} />
                   Item Summary
                 </a>
+                <a
+                  href={`/print/labour-summary/${issue.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setReportsOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors"
+                >
+                  <ExternalLink size={11} />
+                  Labour Summary
+                </a>
               </div>
             )}
           </div>

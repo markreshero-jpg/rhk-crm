@@ -3,6 +3,12 @@ import { supabase } from './supabase'
 export const WORK_ORDER_STATUSES = ['Draft', 'Ready', 'In Progress', 'Completed', 'Cancelled'] as const
 export type WorkOrderStatus = typeof WORK_ORDER_STATUSES[number]
 
+export type WorkOrderWithJob = WorkOrder & {
+  job_number: string | null
+  job_title: string | null
+  client_name: string | null
+}
+
 export type WorkOrder = {
   id: string
   job_id: string
@@ -33,6 +39,8 @@ export type WorkOrderLine = {
   description: string | null
   qty: number
   unit_cost: number
+  stage: string
+  status: string
   required_by: string | null
   include_on_po: boolean
   notes: string | null
@@ -40,7 +48,58 @@ export type WorkOrderLine = {
   updated_at: string
 }
 
+export type LineStatusOption = {
+  id: string
+  stage: string
+  status: string
+  sort: number
+}
+
 // ── Work Orders ──────────────────────────────────────────────────────────────
+
+export async function searchWorkOrders(query: string): Promise<WorkOrderWithJob[]> {
+  let jobIds: string[] = []
+
+  if (query.trim()) {
+    const [jobRes, clientRes] = await Promise.all([
+      supabase.from('jobs').select('id').ilike('job_number', `%${query}%`),
+      supabase.from('clients').select('id').ilike('name', `%${query}%`),
+    ])
+    const directJobIds = (jobRes.data || []).map((j) => j.id)
+    const clientIds = (clientRes.data || []).map((c) => c.id)
+    if (clientIds.length > 0) {
+      const { data } = await supabase.from('jobs').select('id').in('client_id', clientIds)
+      jobIds = [...new Set([...directJobIds, ...(data || []).map((j) => j.id)])]
+    } else {
+      jobIds = directJobIds
+    }
+  }
+
+  let q = supabase
+    .from('work_orders')
+    .select('*, job:jobs(id, job_number, title, client:clients(name))')
+    .order('created_at', { ascending: false })
+
+  if (query.trim()) {
+    const orParts = [
+      `work_order_number.ilike.%${query}%`,
+      `title.ilike.%${query}%`,
+      ...(jobIds.length > 0 ? [`job_id.in.(${jobIds.join(',')})`] : []),
+    ]
+    q = q.or(orParts.join(','))
+  }
+
+  const { data, error } = await q
+  if (error) throw error
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((r: any) => ({
+    ...r,
+    job_number: r.job?.job_number ?? null,
+    job_title: r.job?.title ?? null,
+    client_name: r.job?.client?.name ?? null,
+  }))
+}
 
 export async function getWorkOrdersByJobId(jobId: string): Promise<WorkOrder[]> {
   const { data, error } = await supabase
@@ -118,6 +177,16 @@ export async function updateWorkOrderLine(id: string, line: Partial<WorkOrderLin
 export async function deleteWorkOrderLine(id: string): Promise<void> {
   const { error } = await supabase.from('work_order_lines').delete().eq('id', id)
   if (error) throw error
+}
+
+export async function getLineStatusOptions(): Promise<LineStatusOption[]> {
+  const { data, error } = await supabase
+    .from('work_order_line_status_options')
+    .select('id, stage, status, sort')
+    .eq('is_active', true)
+    .order('sort', { ascending: true })
+  if (error) throw error
+  return data || []
 }
 
 // ── Import helpers ───────────────────────────────────────────────────────────

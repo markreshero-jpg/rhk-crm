@@ -7,6 +7,7 @@ import QuoteItemTemplatesList from '@/components/templates/QuoteItemTemplatesLis
 import StandaloneLineTemplatesList from '@/components/templates/StandaloneLineTemplatesList'
 import StandaloneLabourTemplatesList from '@/components/templates/StandaloneLabourTemplatesList'
 import TermsTemplatesList from '@/components/templates/TermsTemplatesList'
+import LineStatusesList from '@/components/templates/LineStatusesList'
 
 export default function TemplatesPage() {
   return (
@@ -25,6 +26,7 @@ function TemplatesPageContent() {
     { id: 'material', label: 'Material Lines' },
     { id: 'labour', label: 'Labour Lines' },
     { id: 'terms', label: 'Terms & Conditions' },
+    { id: 'statuses', label: 'Work Order Statuses' },
   ]
 
   return (
@@ -44,6 +46,7 @@ function TemplatesPageContent() {
         {activeTab === 'material' && <StandaloneLineTemplatesList />}
         {activeTab === 'labour' && <StandaloneLabourTemplatesList />}
         {activeTab === 'terms' && <TermsTemplatesList />}
+        {activeTab === 'statuses' && <LineStatusesList />}
       </Tabs>
     </div>
   )

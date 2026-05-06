@@ -33,7 +33,9 @@ export type DashboardData = {
   quotesOutValue: number | null
   recentJobs: JobSummary[]
   inProductionJobs: JobSummary[]
+  inquiryJobs: JobSummary[]
   activeWorkOrders: WorkOrderSummary[]
+  upcomingInstallations: WorkOrderSummary[]
 }
 
 // Pick the most relevant issue total: prefer Accepted, fall back to latest issue number
@@ -46,7 +48,12 @@ function getBestTotal(issues: { total_ex_gst: number | null; status: string; iss
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-  const [jobsRes, clientsRes, workOrdersRes] = await Promise.all([
+  const now = new Date()
+  const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+  const todayStr = now.toISOString().slice(0, 10)
+  const in14DaysStr = in14Days.toISOString().slice(0, 10)
+
+  const [jobsRes, clientsRes, workOrdersRes, installationsRes] = await Promise.all([
     supabase
       .from('jobs')
       .select('id, job_number, title, status, site_suburb, created_at, client:clients(name), issues(total_ex_gst, status, issue_number)')
@@ -59,12 +66,20 @@ export async function getDashboardData(): Promise<DashboardData> {
       .select('id, work_order_number, title, status, scheduled_start, scheduled_end, job:jobs(id, job_number, title, client:clients(name))')
       .in('status', ['Draft', 'Ready', 'In Progress'])
       .order('scheduled_start', { ascending: true })
-      .limit(15),
+      .limit(20),
+    supabase
+      .from('work_orders')
+      .select('id, work_order_number, title, status, scheduled_start, scheduled_end, job:jobs(id, job_number, title, client:clients(name))')
+      .gte('scheduled_start', todayStr)
+      .lte('scheduled_start', in14DaysStr)
+      .order('scheduled_start', { ascending: true })
+      .limit(20),
   ])
 
   if (jobsRes.error) throw jobsRes.error
   if (clientsRes.error) throw clientsRes.error
   if (workOrdersRes.error) throw workOrdersRes.error
+  if (installationsRes.error) throw installationsRes.error
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jobs = (jobsRes.data || []) as any[]
@@ -94,7 +109,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const quotesOutJobs    = jobs.filter((j) => j.status === 'Quote Sent')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeWorkOrders: WorkOrderSummary[] = (workOrdersRes.data || []).map((wo: any) => ({
+  const mapWorkOrders = (rows: any[]): WorkOrderSummary[] => rows.map((wo: any) => ({
     id: wo.id,
     work_order_number: wo.work_order_number,
     title: wo.title,
@@ -107,6 +122,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     client_name: wo.job?.client?.name ?? null,
   }))
 
+  const inquiryJobs = jobs.filter((j) => j.status === 'Inquiry')
+
   return {
     jobsByStatus,
     totalJobs: jobs.length,
@@ -115,6 +132,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     quotesOutValue:    quotesOutJobs.length    ? sumValues(quotesOutJobs)    : null,
     recentJobs:        jobs.slice(0, 8).map(toSummary),
     inProductionJobs:  inProductionJobs.map(toSummary),
-    activeWorkOrders,
+    inquiryJobs:       inquiryJobs.map(toSummary),
+    activeWorkOrders:  mapWorkOrders(workOrdersRes.data || []),
+    upcomingInstallations: mapWorkOrders(installationsRes.data || []),
   }
 }

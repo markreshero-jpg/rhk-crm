@@ -46,8 +46,6 @@ export default function DashboardPage() {
   const quotesOut    = data?.jobsByStatus['Quote Sent'] ?? 0
   const inquiries    = data?.jobsByStatus['Inquiry'] ?? 0
 
-  const inProductionTotal = (data?.inProductionJobs ?? []).reduce((s, j) => s + (j.total_ex_gst ?? 0), 0)
-
   return (
     <div className="p-10 max-w-7xl">
       <div className="mb-8">
@@ -125,16 +123,44 @@ export default function DashboardPage() {
           {/* Main content — 3 columns */}
           <div className="grid grid-cols-3 gap-6">
 
+            {/* Quotes to Do */}
+            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Quotes to Do</p>
+                <Link href="/jobs" className="text-xs text-text-muted hover:text-text transition-colors">View all</Link>
+              </div>
+              {(data?.inquiryJobs ?? []).length === 0 ? (
+                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No open enquiries</p>
+              ) : (
+                <div className="divide-y divide-border overflow-y-auto flex-1">
+                  {(data?.inquiryJobs ?? []).map((job) => (
+                    <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11px] text-text-subtle font-mono shrink-0">{job.job_number}</span>
+                          <span className="text-sm text-text truncate">{job.title || 'Untitled'}</span>
+                        </div>
+                        <p className="text-xs text-text-muted mt-0.5 truncate">{job.client_name}{job.site_suburb ? ` · ${job.site_suburb}` : ''}</p>
+                      </div>
+                      {job.total_ex_gst != null && (
+                        <span className="text-xs font-medium text-text-muted tabular-nums shrink-0">{fmtCurrency(job.total_ex_gst)}</span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Work Orders */}
             <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
-                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Active Work Orders</p>
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Work Orders</p>
                 <span className="text-xs text-text-faint">{(data?.activeWorkOrders ?? []).length}</span>
               </div>
               {(data?.activeWorkOrders ?? []).length === 0 ? (
                 <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No active work orders</p>
               ) : (
-                <div className="divide-y divide-border overflow-y-auto">
+                <div className="divide-y divide-border overflow-y-auto flex-1">
                   {(data?.activeWorkOrders ?? []).map((wo) => (
                     <WorkOrderRow key={wo.id} wo={wo} />
                   ))}
@@ -142,66 +168,18 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* In Production */}
-            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
-              <div className="px-5 py-3.5 border-b border-border shrink-0">
-                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">In Production</p>
-              </div>
-              {(data?.inProductionJobs ?? []).length === 0 ? (
-                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No active jobs</p>
-              ) : (
-                <>
-                  <div className="divide-y divide-border overflow-y-auto flex-1">
-                    {(data?.inProductionJobs ?? []).map((job) => (
-                      <Link key={job.id} href={`/jobs/${job.id}`} className="block px-5 py-3 hover:bg-surface-hover transition-colors">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm text-text truncate">{job.title || 'Untitled'}</p>
-                          {job.total_ex_gst != null && (
-                            <span className="text-xs font-medium text-text-muted tabular-nums shrink-0">{fmtCurrency(job.total_ex_gst)}</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          {job.client_name}{job.site_suburb ? ` · ${job.site_suburb}` : ''}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between px-5 py-3 bg-surface-muted border-t border-border-strong shrink-0">
-                    <span className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Total · ex GST</span>
-                    <span className="text-sm font-semibold text-text tabular-nums">{fmtCurrency(inProductionTotal || null)}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Recent Jobs */}
+            {/* Installations — next 14 days */}
             <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
-                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Recent Jobs</p>
-                <Link href="/jobs" className="text-xs text-text-muted hover:text-text transition-colors">View all</Link>
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Installations · Next 14 Days</p>
+                <span className="text-xs text-text-faint">{(data?.upcomingInstallations ?? []).length}</span>
               </div>
-              {(data?.recentJobs ?? []).length === 0 ? (
-                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No jobs yet</p>
+              {(data?.upcomingInstallations ?? []).length === 0 ? (
+                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">Nothing scheduled</p>
               ) : (
                 <div className="divide-y divide-border overflow-y-auto flex-1">
-                  {(data?.recentJobs ?? []).map((job) => (
-                    <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[11px] text-text-subtle font-mono shrink-0">{job.job_number}</span>
-                          <span className="text-sm text-text truncate">{job.title || 'Untitled'}</span>
-                        </div>
-                        <p className="text-xs text-text-muted mt-0.5 truncate">{job.client_name}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {job.total_ex_gst != null && (
-                          <span className="text-xs font-medium text-text tabular-nums">{fmtCurrency(job.total_ex_gst)}</span>
-                        )}
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${statusBadgeClass(job.status)}`}>
-                          {job.status}
-                        </span>
-                      </div>
-                    </Link>
+                  {(data?.upcomingInstallations ?? []).map((wo) => (
+                    <WorkOrderRow key={wo.id} wo={wo} />
                   ))}
                 </div>
               )}
