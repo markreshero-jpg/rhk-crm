@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList } from 'lucide-react'
+import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon } from 'lucide-react'
+import { useTheme } from '@/lib/useTheme'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -17,12 +18,19 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const { theme, toggle } = useTheme()
+  const isDark = theme === 'dark'
 
   return (
     <aside className="w-60 bg-accent text-accent-text flex flex-col h-screen">
       <div className="px-6 py-6 border-b border-accent-border">
         <h1 className="text-xl font-semibold tracking-tight">RHK</h1>
         <p className="text-xs text-accent-text-muted mt-0.5">Operations console</p>
+        {process.env.NODE_ENV === 'development' && (
+          <span className="inline-block mt-1.5 text-[10px] font-semibold tracking-widest uppercase text-red-400">
+            Development
+          </span>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4">
@@ -60,6 +68,24 @@ export default function Sidebar() {
           <span>Settings</span>
         </Link>
       </nav>
+
+      <div className="px-3 pb-2">
+        <button
+          onClick={toggle}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent-hover/50 transition-colors"
+          aria-label="Toggle theme"
+        >
+          {isDark
+            ? <Moon size={14} className="text-accent-text-muted shrink-0" />
+            : <Sun size={14} className="text-accent-text-muted shrink-0" />}
+          <span className="text-xs text-accent-text-muted flex-1 text-left">
+            {isDark ? 'Dark' : 'Light'}
+          </span>
+          <div className={`relative w-8 h-4 rounded-full transition-colors duration-200 ${isDark ? 'bg-accent-hover' : 'bg-accent-text-muted/30'}`}>
+            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-accent-text transition-transform duration-200 ${isDark ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </div>
+        </button>
+      </div>
 
       <div className="px-4 py-4 border-t border-accent-border">
         <div className="flex items-center gap-3">

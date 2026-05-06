@@ -68,7 +68,6 @@ export default function WorkOrdersListPage() {
       return next
     })
 
-    // Fetch lines if not cached
     if (!linesCache.has(id)) {
       setLoadingLines((prev) => new Set(prev).add(id))
       try {
@@ -83,6 +82,34 @@ export default function WorkOrdersListPage() {
       }
     }
   }, [linesCache])
+
+  const allExpanded = filtered.length > 0 && filtered.every((wo) => expandedIds.has(wo.id))
+
+  const toggleExpandAll = useCallback(async () => {
+    if (allExpanded) {
+      setExpandedIds(new Set())
+    } else {
+      const idsToFetch = filtered.filter((wo) => !linesCache.has(wo.id)).map((wo) => wo.id)
+      if (idsToFetch.length > 0) {
+        setLoadingLines((prev) => new Set([...prev, ...idsToFetch]))
+        await Promise.all(
+          idsToFetch.map(async (id) => {
+            try {
+              const lines = await getWorkOrderLinesByWorkOrderId(id)
+              setLinesCache((prev) => new Map(prev).set(id, lines))
+            } finally {
+              setLoadingLines((prev) => {
+                const next = new Set(prev)
+                next.delete(id)
+                return next
+              })
+            }
+          })
+        )
+      }
+      setExpandedIds(new Set(filtered.map((wo) => wo.id)))
+    }
+  }, [allExpanded, filtered, linesCache])
 
   return (
     <div className="p-10 max-w-7xl">
@@ -121,7 +148,20 @@ export default function WorkOrdersListPage() {
           <table className="w-full">
             <thead className="bg-surface-muted border-b border-border">
               <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
-                <th className="px-3 py-2 font-medium w-8" />
+                <th className="px-3 py-2 font-medium w-8">
+                  <button
+                    type="button"
+                    onClick={toggleExpandAll}
+                    className="text-text-faint hover:text-text transition-colors"
+                    aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
+                    title={allExpanded ? 'Collapse all' : 'Expand all'}
+                  >
+                    <ChevronRight
+                      size={15}
+                      className={`transition-transform duration-150 ${allExpanded ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+                </th>
                 <th className="px-3 py-2 font-medium w-28">WO #</th>
                 <th className="px-3 py-2 font-medium w-32">Job</th>
                 <th className="px-3 py-2 font-medium w-40">Client</th>

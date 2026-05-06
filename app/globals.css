@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme inline {
+@theme {
   /* ============================================
      DESIGN TOKENS — change these to retheme the app
      ============================================ */
@@ -44,13 +44,55 @@
   --color-info: oklch(0.5 0.13 240);
   --color-info-bg: oklch(0.95 0.04 240);
   --color-info-border: oklch(0.85 0.08 240);
-/* Density */
---spacing-row-y: 0.4rem;          /* table row vertical padding */
---spacing-row-x: 0.75rem;         /* table row horizontal padding */
---spacing-cell-compact-y: 0.25rem; /* spreadsheet-density rows */
---spacing-cell-compact-x: 0.4rem;
---spacing-section: 1.25rem;        /* gap between sections in a page */
---spacing-form-row: 0.75rem;       /* gap between form rows */
+
+  /* Density */
+  --spacing-row-y: 0.4rem;
+  --spacing-row-x: 0.75rem;
+  --spacing-cell-compact-y: 0.25rem;
+  --spacing-cell-compact-x: 0.4rem;
+  --spacing-section: 1.25rem;
+  --spacing-form-row: 0.75rem;
+}
+
+/* ── Dark mode token overrides ─────────────────────────────────────────────── */
+html[data-theme="dark"] {
+  /* Surfaces */
+  --color-app-bg: oklch(0.14 0.006 240);
+  --color-surface: oklch(0.18 0.006 240);
+  --color-surface-muted: oklch(0.16 0.005 240);
+  --color-surface-hover: oklch(0.22 0.006 240);
+
+  /* Text */
+  --color-text: oklch(0.93 0.004 75);
+  --color-text-muted: oklch(0.72 0.005 75);
+  --color-text-subtle: oklch(0.57 0.004 75);
+  --color-text-faint: oklch(0.42 0.003 75);
+
+  /* Borders */
+  --color-border: oklch(0.27 0.006 240);
+  --color-border-strong: oklch(0.35 0.007 240);
+
+  /* Accent — slightly deeper in dark mode */
+  --color-accent: oklch(0.20 0.07 250);
+  --color-accent-hover: oklch(0.28 0.07 250);
+  --color-accent-border: oklch(0.28 0.01 240);
+
+  /* Semantic — dark backgrounds, brighter foregrounds */
+  --color-danger: oklch(0.68 0.18 25);
+  --color-danger-bg: oklch(0.21 0.05 25);
+  --color-danger-border: oklch(0.36 0.1 25);
+
+  --color-success: oklch(0.68 0.13 145);
+  --color-success-bg: oklch(0.19 0.04 145);
+  --color-success-border: oklch(0.33 0.08 145);
+
+  --color-warning: oklch(0.73 0.13 75);
+  --color-warning-bg: oklch(0.20 0.05 85);
+  --color-warning-border: oklch(0.36 0.1 85);
+
+  --color-info: oklch(0.68 0.13 240);
+  --color-info-bg: oklch(0.19 0.04 240);
+  --color-info-border: oklch(0.33 0.08 240);
 }
 
 body {
