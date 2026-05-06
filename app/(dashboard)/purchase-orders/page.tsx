@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Trash2, Send, ExternalLink, Mail, ChevronDown, Printer, Package, AlertTriangle, Lock, Unlock, CheckCircle2, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Send, ExternalLink, Mail, ChevronDown, Printer, Package, Lock, Unlock, CheckCircle2, ChevronRight, Paperclip, FileText, FileImage, File, X, Upload } from 'lucide-react'
 import {
   PurchaseOrder, PurchaseOrderLine, JobOption, WorkOrderOption,
   PO_STATUSES, POStatus,
@@ -13,6 +13,7 @@ import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { getSupplierItemByCode } from '@/lib/supplierItems'
 import { getPOEmails, POEmail } from '@/lib/purchaseOrderEmails'
 import { getPOReceipts, createPOReceipt, POReceipt } from '@/lib/purchaseOrderReceipts'
+import { getPOAttachments, uploadPOAttachment, deletePOAttachment, POAttachment, fmtFileSize } from '@/lib/purchaseOrderAttachments'
 import { formatCurrency } from '@/lib/format'
 
 const poStatusStyles: Record<string, string> = {
@@ -155,6 +156,7 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
   const [workOrders, setWorkOrders] = useState<WorkOrderOption[]>([])
   const [emails, setEmails] = useState<POEmail[]>([])
   const [receipts, setReceipts] = useState<POReceipt[]>([])
+  const [attachments, setAttachments] = useState<POAttachment[]>([])
   const [loadingLines, setLoadingLines] = useState(true)
   const [showSendModal, setShowSendModal] = useState(false)
   const [showReceiveModal, setShowReceiveModal] = useState(false)
@@ -166,14 +168,15 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
   const isLocked = isSent && !sessionUnlocked
 
   const loadLines = useCallback(async () => {
-    const [l, j, wo, em, rec] = await Promise.all([
+    const [l, j, wo, em, rec, att] = await Promise.all([
       getPurchaseOrderLines(po.id),
       getJobOptions(),
       getWorkOrderOptions(),
       getPOEmails(po.id),
       getPOReceipts(po.id),
+      getPOAttachments(po.id),
     ])
-    setLines(l); setJobs(j); setWorkOrders(wo); setEmails(em); setReceipts(rec)
+    setLines(l); setJobs(j); setWorkOrders(wo); setEmails(em); setReceipts(rec); setAttachments(att)
     setLoadingLines(false)
   }, [po.id])
 
@@ -394,6 +397,10 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
           )}
       </div>
 
+      {/* Attachments */}
+      <hr className="border-border" />
+      <AttachmentsSection poId={po.id} attachments={attachments} onRefresh={loadLines} />
+
       {/* Goods Receipt History */}
       {receipts.length > 0 && (
         <>
@@ -491,7 +498,7 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
       )}
 
       {showSendModal && (
-        <SendModal po={po} suppliers={suppliers} onClose={() => setShowSendModal(false)}
+        <SendModal po={po} suppliers={suppliers} attachments={attachments} onClose={() => setShowSendModal(false)}
           onSent={async () => { setShowSendModal(false); await onReload(); await loadLines() }} />
       )}
 
@@ -668,9 +675,10 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
 
 // ── Send Modal ────────────────────────────────────────────────────────────────
 
-function SendModal({ po, suppliers, onClose, onSent }: {
+function SendModal({ po, suppliers, attachments, onClose, onSent }: {
   po: PurchaseOrder
   suppliers: Supplier[]
+  attachments: POAttachment[]
   onClose: () => void
   onSent: () => void
 }) {
@@ -680,8 +688,19 @@ function SendModal({ po, suppliers, onClose, onSent }: {
   const [cc, setCc]         = useState('')
   const [bcc, setBcc]       = useState('')
   const [subject, setSubject] = useState(`Purchase Order ${po.po_number || ''} — RHK`)
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<Set<string>>(
+    () => new Set(attachments.map((a) => a.id))
+  )
   const [sending, setSending] = useState(false)
   const [error, setError]   = useState<string | null>(null)
+
+  function toggleAttachment(id: string) {
+    setSelectedAttachmentIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   async function handleSend() {
     const localPart = from.trim().replace(/@.*$/, '')
@@ -695,7 +714,14 @@ function SendModal({ po, suppliers, onClose, onSent }: {
       const res = await fetch(`/api/purchase-orders/${po.id}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: fromAddr, to: toList, cc: cc.split(',').map((e) => e.trim()).filter(Boolean), bcc: bcc.split(',').map((e) => e.trim()).filter(Boolean), subject }),
+        body: JSON.stringify({
+          from: fromAddr,
+          to: toList,
+          cc: cc.split(',').map((e) => e.trim()).filter(Boolean),
+          bcc: bcc.split(',').map((e) => e.trim()).filter(Boolean),
+          subject,
+          attachmentIds: Array.from(selectedAttachmentIds),
+        }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to send'); return }
       onSent()
@@ -704,13 +730,14 @@ function SendModal({ po, suppliers, onClose, onSent }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 mb-5">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-border shrink-0">
           <Send size={16} className="text-text-muted" />
           <h2 className="text-base font-semibold text-text">Email Purchase Order</h2>
         </div>
-        <div className="space-y-3">
+
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-3">
           <div>
             <Label>From</Label>
             <div className="flex items-center">
@@ -735,16 +762,37 @@ function SendModal({ po, suppliers, onClose, onSent }: {
             <Label>Subject</Label>
             <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} className={inputCls} />
           </div>
+
+          {attachments.length > 0 && (
+            <div>
+              <Label>Attachments <span className="text-text-faint font-normal">(uncheck to exclude)</span></Label>
+              <div className="space-y-1.5">
+                {attachments.map((a) => {
+                  const checked = selectedAttachmentIds.has(a.id)
+                  return (
+                    <label key={a.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-md border cursor-pointer transition-colors ${checked ? 'border-accent bg-surface' : 'border-border bg-surface-muted opacity-50'}`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleAttachment(a.id)} className="accent-accent" />
+                      <FileIcon mime={a.mime_type} size={14} className="text-text-subtle shrink-0" />
+                      <span className="text-xs text-text flex-1 truncate">{a.file_name}</span>
+                      {a.file_size && <span className="text-[11px] text-text-faint shrink-0">{fmtFileSize(a.file_size)}</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
-        {error && <p className="mt-3 text-xs text-danger">{error}</p>}
-        <div className="flex gap-3 mt-5">
+
+        {error && <p className="px-6 pb-2 text-xs text-danger">{error}</p>}
+
+        <div className="flex gap-3 px-6 py-4 border-t border-border shrink-0">
           <button type="button" onClick={handleSend} disabled={sending}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50 transition-colors">
             <Send size={14} />{sending ? 'Sending…' : 'Send Purchase Order'}
           </button>
           <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-text-muted hover:text-text border border-border rounded-md hover:bg-surface-hover transition-colors">Cancel</button>
         </div>
-        <p className="text-[10px] text-text-faint mt-3 text-center">Sending will log this email and mark the PO as Sent.</p>
+        <p className="text-[10px] text-text-faint pb-3 text-center">Sending will log this email and mark the PO as Sent.</p>
       </div>
     </div>
   )
@@ -856,6 +904,97 @@ function POLineRow({ line, jobs, workOrders, supplierId, locked, onUpdate, onDel
       </tr>
     </tbody>
   )
+}
+
+// ── Attachments Section ───────────────────────────────────────────────────────
+
+function AttachmentsSection({ poId, attachments, onRefresh }: {
+  poId: string
+  attachments: POAttachment[]
+  onRefresh: () => Promise<void>
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    try {
+      await uploadPOAttachment(poId, file)
+      await onRefresh()
+    } catch (err) {
+      setError((err as Error).message || 'Upload failed')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleDelete(id: string, filePath: string) {
+    if (!confirm('Remove this attachment?')) return
+    try {
+      await deletePOAttachment(id, filePath)
+      await onRefresh()
+    } catch (err) {
+      setError((err as Error).message || 'Delete failed')
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium flex items-center gap-1.5">
+          <Paperclip size={11} />Attachments
+        </h3>
+        <label className={`flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <Upload size={12} />
+          {uploading ? 'Uploading…' : 'Upload File'}
+          <input type="file" className="hidden" onChange={handleFileChange} disabled={uploading}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.txt" />
+        </label>
+      </div>
+
+      {error && <p className="text-xs text-danger mb-2">{error}</p>}
+
+      {attachments.length === 0 ? (
+        <p className="text-xs text-text-faint italic">No attachments yet — upload PDFs, documents or images.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {attachments.map((a) => (
+            <div key={a.id} className="flex items-center gap-2.5 px-3 py-2 bg-surface-muted border border-border rounded-md">
+              <FileIcon mime={a.mime_type} size={14} className="text-text-subtle shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-text truncate">{a.file_name}</div>
+                {a.file_size && <div className="text-[11px] text-text-faint">{fmtFileSize(a.file_size)}</div>}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {a.signed_url && (
+                  <a href={a.signed_url} target="_blank" rel="noopener noreferrer"
+                    className="text-[11px] text-text-muted hover:text-text transition-colors">
+                    View
+                  </a>
+                )}
+                <button type="button" onClick={() => handleDelete(a.id, a.file_path)}
+                  className="text-text-faint hover:text-danger transition-colors">
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── File Icon ────────────────────────────────────────────────────────────────
+
+function FileIcon({ mime, size, className }: { mime: string | null; size: number; className?: string }) {
+  if (mime?.startsWith('image/')) return <FileImage size={size} className={className} />
+  if (mime === 'application/pdf' || mime?.includes('word') || mime?.includes('document')) return <FileText size={size} className={className} />
+  return <File size={size} className={className} />
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

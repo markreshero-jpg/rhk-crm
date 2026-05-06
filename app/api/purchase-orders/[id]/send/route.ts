@@ -3,10 +3,11 @@ import { Resend } from 'resend'
 import { supabase } from '@/lib/supabase'
 import { createPOEmail, POSnapshot } from '@/lib/purchaseOrderEmails'
 import { updatePurchaseOrder } from '@/lib/purchaseOrders'
+import { getPOAttachmentsByIds } from '@/lib/purchaseOrderAttachments'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: poId } = await params
-  const body = await req.json() as { from: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string }
+  const body = await req.json() as { from: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string; attachmentIds?: string[] }
 
   if (!body.to?.length) {
     return NextResponse.json({ error: 'At least one recipient required' }, { status: 400 })
@@ -128,6 +129,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let resendMessageId: string | null = null
   const apiKey = process.env.RESEND_API_KEY
 
+  // Build email attachments from selected files
+  const emailAttachments: { filename: string; content: Buffer }[] = []
+  if (body.attachmentIds?.length) {
+    const attachmentRecords = await getPOAttachmentsByIds(body.attachmentIds)
+    for (const rec of attachmentRecords) {
+      try {
+        const { data: blob, error: dlErr } = await supabase.storage
+          .from('po-attachments')
+          .download(rec.file_path)
+        if (dlErr || !blob) continue
+        const buf = Buffer.from(await blob.arrayBuffer())
+        emailAttachments.push({ filename: rec.file_name, content: buf })
+      } catch (e) {
+        console.error(`Failed to download attachment ${rec.file_name}:`, e)
+      }
+    }
+  }
+
   if (apiKey) {
     try {
       const resend = new Resend(apiKey)
@@ -138,11 +157,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         bcc: body.bcc?.length ? body.bcc : undefined,
         subject: body.subject,
         html,
+        attachments: emailAttachments.length ? emailAttachments : undefined,
       })
       resendMessageId = result.data?.id ?? null
     } catch (e) {
       console.error('Resend error:', e)
-      // Still log the send attempt even if email fails
     }
   } else {
     console.warn('RESEND_API_KEY not configured — email not sent, but log recorded.')
