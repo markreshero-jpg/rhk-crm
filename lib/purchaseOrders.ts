@@ -63,6 +63,24 @@ export type WorkOrderOption = {
   title: string | null
 }
 
+// ── PO number generation ──────────────────────────────────────────────────────
+
+export async function generatePONumber(): Promise<string> {
+  const { data } = await supabase
+    .from('purchase_orders')
+    .select('po_number')
+    .like('po_number', 'RH%')
+    .order('po_number', { ascending: false })
+    .limit(20)
+
+  const nums = (data || [])
+    .map((r) => parseInt((r.po_number || '').replace(/^RH/i, ''), 10))
+    .filter((n) => !isNaN(n))
+
+  const max = nums.length > 0 ? Math.max(...nums) : 0
+  return `RH${String(max + 1).padStart(3, '0')}`
+}
+
 // ── Purchase Orders ───────────────────────────────────────────────────────────
 
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
