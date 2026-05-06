@@ -165,6 +165,103 @@ export async function deletePurchaseOrderLine(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ── Send WO lines to POs ──────────────────────────────────────────────────────
+
+export async function getDraftPOsBySupplier(): Promise<Record<string, PurchaseOrder>> {
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select('*, supplier:suppliers(company_name)')
+    .eq('status', 'Draft')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  const result: Record<string, PurchaseOrder> = {}
+  for (const r of (data || [])) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (r.supplier_id && !result[r.supplier_id]) result[r.supplier_id] = { ...r, supplier_name: (r as any).supplier?.company_name ?? null }
+  }
+  return result
+}
+
+export type WOLineInput = {
+  id: string
+  work_order_id: string
+  job_id: string | null
+  item_code: string | null
+  item: string | null
+  description: string | null
+  qty: number
+  unit_cost: number
+}
+
+export type POSendAssignment = {
+  supplierId: string
+  lineIds: string[]
+  action: 'new' | 'existing'
+  existingPoId?: string
+}
+
+export async function sendWOLinesToPO(
+  assignments: POSendAssignment[],
+  lines: WOLineInput[],
+  orderDate: string
+): Promise<void> {
+  const lineMap = new Map(lines.map((l) => [l.id, l]))
+
+  for (const assignment of assignments) {
+    if (!assignment.lineIds.length) continue
+
+    let poId: string
+    if (assignment.action === 'existing' && assignment.existingPoId) {
+      poId = assignment.existingPoId
+    } else {
+      const poNumber = await generatePONumber()
+      const po = await createPurchaseOrder({ supplier_id: assignment.supplierId, status: 'Draft', order_date: orderDate, po_number: poNumber })
+      poId = po.id
+    }
+
+    const { data: existing } = await supabase.from('purchase_order_lines').select('sort').eq('purchase_order_id', poId).order('sort', { ascending: false }).limit(1)
+    let nextSort = (existing?.[0]?.sort ?? 0) + 1
+
+    const poLines = assignment.lineIds.map((id) => lineMap.get(id)).filter(Boolean).map((l) => ({
+      purchase_order_id: poId,
+      job_id: l!.job_id,
+      work_order_id: l!.work_order_id,
+      work_order_line_id: l!.id,
+      sort: nextSort++,
+      item_code: l!.item_code,
+      item: l!.item,
+      description: l!.description,
+      qty: l!.qty,
+      unit_cost: l!.unit_cost,
+      gst_rate: 0.1,
+    }))
+
+    if (poLines.length) {
+      const { error } = await supabase.from('purchase_order_lines').insert(poLines)
+      if (error) throw error
+    }
+
+    const { error: clrErr } = await supabase.from('work_order_lines').update({ include_on_po: false }).in('id', assignment.lineIds)
+    if (clrErr) throw clrErr
+  }
+}
+
+// ── Line summaries (for filtering) ───────────────────────────────────────────
+
+export type POLineSummary = {
+  purchase_order_id: string
+  item: string | null
+  item_code: string | null
+}
+
+export async function getPOLineSummaries(): Promise<POLineSummary[]> {
+  const { data, error } = await supabase
+    .from('purchase_order_lines')
+    .select('purchase_order_id, item, item_code')
+  if (error) throw error
+  return data || []
+}
+
 // ── Reference data ────────────────────────────────────────────────────────────
 
 export async function getJobOptions(): Promise<JobOption[]> {

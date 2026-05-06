@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { Plus, Trash2, Send, ExternalLink, Mail, ChevronDown, Printer, Package, Lock, Unlock, CheckCircle2, ChevronRight, Paperclip, FileText, FileImage, File, X, Upload } from 'lucide-react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Plus, Trash2, Send, ExternalLink, Mail, ChevronDown, Printer, Package, Lock, Unlock, CheckCircle2, ChevronRight, Paperclip, FileText, FileImage, File, X, Upload, Search } from 'lucide-react'
 import {
-  PurchaseOrder, PurchaseOrderLine, JobOption, WorkOrderOption,
+  PurchaseOrder, PurchaseOrderLine, JobOption, WorkOrderOption, POLineSummary,
   PO_STATUSES, POStatus,
   getPurchaseOrders, createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
   getPurchaseOrderLines, createPurchaseOrderLine, updatePurchaseOrderLine, deletePurchaseOrderLine,
-  getJobOptions, getWorkOrderOptions, generatePONumber,
+  getJobOptions, getWorkOrderOptions, generatePONumber, getPOLineSummaries,
 } from '@/lib/purchaseOrders'
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { getSupplierItemByCode } from '@/lib/supplierItems'
@@ -25,10 +25,20 @@ const poStatusStyles: Record<string, string> = {
   'Cancelled':     'bg-surface-muted text-text-faint border-border',
 }
 
+const sidebarStatusStyles: Record<string, string> = {
+  'Draft':         'bg-gray-100 text-gray-500 border-gray-200',
+  'Sent':          'bg-blue-100 text-blue-700 border-blue-200',
+  'Confirmed':     'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'Part Received': 'bg-amber-100 text-amber-700 border-amber-200',
+  'Received':      'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'Cancelled':     'bg-red-50 text-red-400 border-red-200',
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PurchaseOrdersPage() {
   const [pos, setPos] = useState<PurchaseOrder[]>([])
+  const [lineSummaries, setLineSummaries] = useState<POLineSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,10 +46,40 @@ export default function PurchaseOrdersPage() {
   const [showNewSupplier, setShowNewSupplier] = useState(false)
   const [newSupplierId, setNewSupplierId] = useState('')
 
+  // Filter state
+  const [filterSupplier, setFilterSupplier] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterItem, setFilterItem] = useState('')
+  const [filterCode, setFilterCode] = useState('')
+
+  const isFiltered = !!(filterSupplier || filterDateFrom || filterDateTo || filterItem || filterCode)
+
+  const filteredPos = useMemo(() => {
+    const itemQ = filterItem.toLowerCase().trim()
+    const codeQ = filterCode.toLowerCase().trim()
+    return pos.filter((po) => {
+      if (filterSupplier && po.supplier_id !== filterSupplier) return false
+      if (filterDateFrom && po.order_date && po.order_date < filterDateFrom) return false
+      if (filterDateTo && po.order_date && po.order_date > filterDateTo) return false
+      if (itemQ || codeQ) {
+        const poLines = lineSummaries.filter((l) => l.purchase_order_id === po.id)
+        if (itemQ && !poLines.some((l) => l.item?.toLowerCase().includes(itemQ))) return false
+        if (codeQ && !poLines.some((l) => l.item_code?.toLowerCase().includes(codeQ))) return false
+      }
+      return true
+    })
+  }, [pos, lineSummaries, filterSupplier, filterDateFrom, filterDateTo, filterItem, filterCode])
+
+  function clearFilters() {
+    setFilterSupplier(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterItem(''); setFilterCode('')
+  }
+
   const load = useCallback(async () => {
-    const [data, sups] = await Promise.all([getPurchaseOrders(), getAllSuppliers()])
+    const [data, sups, summaries] = await Promise.all([getPurchaseOrders(), getAllSuppliers(), getPOLineSummaries()])
     setPos(data)
     setSuppliers(sups)
+    setLineSummaries(summaries)
     if (data.length > 0 && !selectedId) setSelectedId(data[0].id)
     setLoading(false)
   }, [selectedId])
@@ -81,6 +121,50 @@ export default function PurchaseOrdersPage() {
       </div>
 
       {loading ? <p className="text-text-subtle text-sm">Loading...</p> : (
+        <>
+          {/* Filter bar */}
+          <div className="flex items-end gap-2 mb-5 flex-wrap">
+            <div>
+              <p className={filterLabelCls}>Supplier</p>
+              <select value={filterSupplier} onChange={(e) => setFilterSupplier(e.target.value)} className={filterInputCls} style={{ minWidth: 160 }}>
+                <option value="">All suppliers</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.company_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <p className={filterLabelCls}>From</p>
+              <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className={filterInputCls} />
+            </div>
+            <div>
+              <p className={filterLabelCls}>To</p>
+              <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className={filterInputCls} />
+            </div>
+            <div className="flex-1" style={{ minWidth: 140 }}>
+              <p className={filterLabelCls}>Item</p>
+              <div className="relative">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
+                <input type="text" value={filterItem} onChange={(e) => setFilterItem(e.target.value)} placeholder="Search items…" className={filterInputCls + ' pl-7'} />
+              </div>
+            </div>
+            <div style={{ minWidth: 120 }}>
+              <p className={filterLabelCls}>Item Code</p>
+              <input type="text" value={filterCode} onChange={(e) => setFilterCode(e.target.value)} placeholder="e.g. ABC123" className={filterInputCls} />
+            </div>
+            <div className="flex items-end gap-3 pb-px">
+              {isFiltered && (
+                <button type="button" onClick={clearFilters}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs text-text-muted border border-border rounded-md hover:bg-surface-hover hover:text-text transition-colors">
+                  <X size={11} /> Clear
+                </button>
+              )}
+              {isFiltered && (
+                <span className="text-xs text-text-subtle whitespace-nowrap">
+                  {filteredPos.length} of {pos.length}
+                </span>
+              )}
+            </div>
+          </div>
+
         <div className="flex gap-6">
           <aside className="w-64 shrink-0">
             <button type="button" onClick={handleNew} disabled={busy || suppliers.length === 0}
@@ -104,9 +188,9 @@ export default function PurchaseOrdersPage() {
             )}
 
             <ul className="space-y-1">
-              {pos.length === 0 ? (
-                <li className="text-text-subtle text-xs italic px-2 py-3">No purchase orders yet.</li>
-              ) : pos.map((po) => {
+              {filteredPos.length === 0 ? (
+                <li className="text-text-subtle text-xs italic px-2 py-3">{isFiltered ? 'No orders match your filters.' : 'No purchase orders yet.'}</li>
+              ) : filteredPos.map((po) => {
                 const isSel = selectedId === po.id
                 return (
                   <li key={po.id}>
@@ -114,7 +198,7 @@ export default function PurchaseOrdersPage() {
                       className={`w-full text-left px-3 py-2.5 rounded-md transition-colors ${isSel ? 'bg-accent text-accent-text' : 'hover:bg-surface-hover text-text'}`}>
                       <div className="flex items-center justify-between gap-1 mb-0.5">
                         <span className={`text-[10px] font-mono ${isSel ? 'text-accent-text/70' : 'text-text-subtle'}`}>{po.po_number || 'Draft'}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${isSel ? 'bg-surface text-text border-border' : poStatusStyles[po.status] || ''}`}>{po.status}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${sidebarStatusStyles[po.status] || ''}`}>{po.status}</span>
                       </div>
                       <div className="text-xs font-medium truncate">{po.supplier_name || '—'}</div>
                       <div className={`text-[11px] mt-0.5 ${isSel ? 'text-accent-text/60' : 'text-text-subtle'}`}>{po.order_date}</div>
@@ -137,6 +221,7 @@ export default function PurchaseOrdersPage() {
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   )
@@ -890,7 +975,7 @@ function POLineRow({ line, jobs, workOrders, supplierId, locked, onUpdate, onDel
         {/* Received column */}
         <td className="px-2 py-1.5 w-20 text-right tabular-nums">
           {ordered === 0 ? <span className="text-text-faint">—</span>
-            : fullyReceived ? <span className="flex items-center justify-end gap-1 text-success text-[11px]"><CheckCircle2 size={11} />{received}</span>
+            : fullyReceived ? <span className="flex items-center justify-end gap-1 text-success text-xs"><CheckCircle2 size={15} />{received}</span>
             : partReceived  ? <span className="text-warning font-medium">{received}<span className="text-text-faint font-normal"> / {ordered}</span></span>
             : <span className="text-text-faint">0 / {ordered}</span>}
         </td>
@@ -1015,6 +1100,8 @@ function Th({ children, right }: { children?: React.ReactNode; right?: boolean }
   )
 }
 
-const inputCls   = 'w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-border disabled:bg-surface-muted disabled:text-text-faint disabled:cursor-not-allowed'
-const cellCls    = 'w-full px-1.5 py-1 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:text-text-faint'
-const contextCls = 'flex-1 min-w-0 px-1.5 py-0.5 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted disabled:cursor-not-allowed'
+const inputCls      = 'w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-border disabled:bg-surface-muted disabled:text-text-faint disabled:cursor-not-allowed'
+const cellCls       = 'w-full px-1.5 py-1 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:text-text-faint'
+const contextCls    = 'flex-1 min-w-0 px-1.5 py-0.5 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted disabled:cursor-not-allowed'
+const filterInputCls = 'w-full px-2.5 py-2 text-xs bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-1 focus:ring-border text-text'
+const filterLabelCls = 'text-[10px] uppercase tracking-wider text-text-faint font-medium mb-1'

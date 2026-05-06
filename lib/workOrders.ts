@@ -273,6 +273,18 @@ export type LineGroup = {
   total: number
 }
 
+export type WOLineWithContext = WorkOrderLine & {
+  work_order_number: string | null
+  job_id: string | null
+  job_number: string | null
+  supplier_name: string | null
+}
+
+export type WOLinePOStatus = {
+  purchase_order_id: string
+  po_number: string | null
+}
+
 export function groupWorkOrderLines(lines: WorkOrderLine[]): LineGroup[] {
   const order: string[] = []
   const map = new Map<string, WorkOrderLine[]>()
@@ -289,4 +301,49 @@ export function groupWorkOrderLines(lines: WorkOrderLine[]): LineGroup[] {
       total: groupLines.reduce((s, l) => s + (l.qty || 0) * (l.unit_cost || 0), 0),
     }
   })
+}
+
+// ── PO integration helpers ────────────────────────────────────────────────────
+
+export async function countIncludeOnPOLines(): Promise<number> {
+  const { count, error } = await supabase
+    .from('work_order_lines')
+    .select('id', { count: 'exact', head: true })
+    .eq('include_on_po', true)
+  if (error) return 0
+  return count ?? 0
+}
+
+export async function getIncludeOnPOLines(): Promise<WOLineWithContext[]> {
+  const { data, error } = await supabase
+    .from('work_order_lines')
+    .select('*, work_order:work_orders(work_order_number, job_id, job:jobs(job_number)), supplier:suppliers(company_name)')
+    .eq('include_on_po', true)
+    .order('sort', { ascending: true })
+  if (error) throw error
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((r: any) => ({
+    ...r,
+    work_order_number: r.work_order?.work_order_number ?? null,
+    job_id: r.work_order?.job_id ?? null,
+    job_number: r.work_order?.job?.job_number ?? null,
+    supplier_name: r.supplier?.company_name ?? null,
+  }))
+}
+
+export async function getPOStatusForWOLines(lineIds: string[]): Promise<Map<string, WOLinePOStatus>> {
+  if (!lineIds.length) return new Map()
+  const { data, error } = await supabase
+    .from('purchase_order_lines')
+    .select('work_order_line_id, purchase_order_id, po:purchase_orders(po_number)')
+    .in('work_order_line_id', lineIds)
+  if (error) return new Map()
+  const map = new Map<string, WOLinePOStatus>()
+  for (const r of (data || [])) {
+    if (r.work_order_line_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.set(r.work_order_line_id, { purchase_order_id: r.purchase_order_id, po_number: (r.po as any)?.po_number ?? null })
+    }
+  }
+  return map
 }
