@@ -303,6 +303,18 @@ export function groupWorkOrderLines(lines: WorkOrderLine[]): LineGroup[] {
   })
 }
 
+// ── Work order number generation ──────────────────────────────────────────────
+
+export async function generateWorkOrderNumber(jobId: string): Promise<string> {
+  const [{ data: job }, { count }] = await Promise.all([
+    supabase.from('jobs').select('job_number').eq('id', jobId).single(),
+    supabase.from('work_orders').select('id', { count: 'exact', head: true }).eq('job_id', jobId),
+  ])
+  const prefix = job?.job_number ?? 'WO'
+  const next = (count ?? 0) + 1
+  return `${prefix}-WO-${String(next).padStart(2, '0')}`
+}
+
 // ── PO integration helpers ────────────────────────────────────────────────────
 
 export async function countIncludeOnPOLines(): Promise<number> {

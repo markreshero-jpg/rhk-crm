@@ -5,6 +5,7 @@ export type Supplier = {
   company_name: string
   contact_name: string | null
   email: string | null
+  emails: string[]
   phone: string | null
   address_line1: string | null
   address_line2: string | null

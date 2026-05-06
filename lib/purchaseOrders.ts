@@ -61,6 +61,9 @@ export type WorkOrderOption = {
   job_id: string
   work_order_number: string | null
   title: string | null
+  job_number: string | null
+  job_title: string | null
+  client_name: string | null
 }
 
 // ── PO number generation ──────────────────────────────────────────────────────
@@ -283,9 +286,18 @@ export async function getJobOptions(): Promise<JobOption[]> {
 export async function getWorkOrderOptions(): Promise<WorkOrderOption[]> {
   const { data, error } = await supabase
     .from('work_orders')
-    .select('id, job_id, work_order_number, title')
+    .select('id, job_id, work_order_number, title, job:jobs(job_number, title, client:clients(name))')
     .order('created_at', { ascending: true })
     .limit(500)
   if (error) throw error
-  return data || []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    job_id: r.job_id,
+    work_order_number: r.work_order_number,
+    title: r.title,
+    job_number: r.job?.job_number ?? null,
+    job_title: r.job?.title ?? null,
+    client_name: r.job?.client?.name ?? null,
+  }))
 }

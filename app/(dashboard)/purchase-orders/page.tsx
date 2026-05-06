@@ -3,13 +3,13 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Plus, Trash2, Send, ExternalLink, Mail, ChevronDown, Printer, Package, Lock, Unlock, CheckCircle2, ChevronRight, Paperclip, FileText, FileImage, File, X, Upload, Search } from 'lucide-react'
 import {
-  PurchaseOrder, PurchaseOrderLine, JobOption, WorkOrderOption, POLineSummary,
+  PurchaseOrder, PurchaseOrderLine, WorkOrderOption, POLineSummary,
   PO_STATUSES, POStatus,
   getPurchaseOrders, createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
   getPurchaseOrderLines, createPurchaseOrderLine, updatePurchaseOrderLine, deletePurchaseOrderLine,
-  getJobOptions, getWorkOrderOptions, generatePONumber, getPOLineSummaries,
+  getWorkOrderOptions, generatePONumber, getPOLineSummaries,
 } from '@/lib/purchaseOrders'
-import { getAllSuppliers, Supplier } from '@/lib/suppliers'
+import { getAllSuppliers, getSupplierById, Supplier } from '@/lib/suppliers'
 import { getSupplierItemByCode } from '@/lib/supplierItems'
 import { getPOEmails, POEmail } from '@/lib/purchaseOrderEmails'
 import { getPOReceipts, createPOReceipt, POReceipt } from '@/lib/purchaseOrderReceipts'
@@ -47,32 +47,57 @@ export default function PurchaseOrdersPage() {
   const [newSupplierId, setNewSupplierId] = useState('')
 
   // Filter state
+  const [filterSearch, setFilterSearch] = useState('')
   const [filterSupplier, setFilterSupplier] = useState('')
-  const [filterDateFrom, setFilterDateFrom] = useState('')
-  const [filterDateTo, setFilterDateTo] = useState('')
-  const [filterItem, setFilterItem] = useState('')
-  const [filterCode, setFilterCode] = useState('')
+  const [datePreset, setDatePreset] = useState('')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
-  const isFiltered = !!(filterSupplier || filterDateFrom || filterDateTo || filterItem || filterCode)
+  const isFiltered = !!(filterSearch || filterSupplier || datePreset)
+
+  const sortedPos = useMemo(() => {
+    return [...pos].sort((a, b) => {
+      const aDraft = a.status === 'Draft' ? 0 : 1
+      const bDraft = b.status === 'Draft' ? 0 : 1
+      if (aDraft !== bDraft) return aDraft - bDraft
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+  }, [pos])
 
   const filteredPos = useMemo(() => {
-    const itemQ = filterItem.toLowerCase().trim()
-    const codeQ = filterCode.toLowerCase().trim()
-    return pos.filter((po) => {
+    const q = filterSearch.toLowerCase().trim()
+
+    const today = new Date().toISOString().slice(0, 10)
+    let fromDate = '', toDate = ''
+    if (datePreset === '7d') {
+      const d = new Date(); d.setDate(d.getDate() - 7)
+      fromDate = d.toISOString().slice(0, 10); toDate = today
+    } else if (datePreset === '30d') {
+      const d = new Date(); d.setDate(d.getDate() - 30)
+      fromDate = d.toISOString().slice(0, 10); toDate = today
+    } else if (datePreset === 'month') {
+      const now = new Date()
+      fromDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`; toDate = today
+    } else if (datePreset === 'custom') {
+      fromDate = customFrom; toDate = customTo
+    }
+
+    return sortedPos.filter((po) => {
       if (filterSupplier && po.supplier_id !== filterSupplier) return false
-      if (filterDateFrom && po.order_date && po.order_date < filterDateFrom) return false
-      if (filterDateTo && po.order_date && po.order_date > filterDateTo) return false
-      if (itemQ || codeQ) {
+      if (fromDate && po.order_date && po.order_date < fromDate) return false
+      if (toDate && po.order_date && po.order_date > toDate) return false
+      if (q) {
+        const matchesPO = po.po_number?.toLowerCase().includes(q) || po.supplier_name?.toLowerCase().includes(q)
         const poLines = lineSummaries.filter((l) => l.purchase_order_id === po.id)
-        if (itemQ && !poLines.some((l) => l.item?.toLowerCase().includes(itemQ))) return false
-        if (codeQ && !poLines.some((l) => l.item_code?.toLowerCase().includes(codeQ))) return false
+        const matchesLine = poLines.some((l) => l.item?.toLowerCase().includes(q) || l.item_code?.toLowerCase().includes(q))
+        if (!matchesPO && !matchesLine) return false
       }
       return true
     })
-  }, [pos, lineSummaries, filterSupplier, filterDateFrom, filterDateTo, filterItem, filterCode])
+  }, [sortedPos, lineSummaries, filterSearch, filterSupplier, datePreset, customFrom, customTo])
 
   function clearFilters() {
-    setFilterSupplier(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterItem(''); setFilterCode('')
+    setFilterSearch(''); setFilterSupplier(''); setDatePreset(''); setCustomFrom(''); setCustomTo('')
   }
 
   const load = useCallback(async () => {
@@ -80,7 +105,11 @@ export default function PurchaseOrdersPage() {
     setPos(data)
     setSuppliers(sups)
     setLineSummaries(summaries)
-    if (data.length > 0 && !selectedId) setSelectedId(data[0].id)
+    if (data.length > 0 && !selectedId) {
+      const firstDraft = data.find((p) => p.status === 'Draft')
+      const newest = [...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+      setSelectedId((firstDraft ?? newest).id)
+    }
     setLoading(false)
   }, [selectedId])
 
@@ -97,7 +126,7 @@ export default function PurchaseOrdersPage() {
     setBusy(true)
     try {
       const poNum = await generatePONumber()
-      const po = await createPurchaseOrder({ supplier_id: newSupplierId, status: 'Draft', order_date: new Date().toISOString().slice(0, 10), po_number: poNum })
+      const po = await createPurchaseOrder({ supplier_id: newSupplierId, status: 'Draft', order_date: new Date().toISOString().slice(0, 10), po_number: poNum, delivery_name: '32 Gateway Drive', delivery_suburb: 'Noosaville', delivery_postcode: '4566' })
       setShowNewSupplier(false)
       await load()
       setSelectedId(po.id)
@@ -123,38 +152,28 @@ export default function PurchaseOrdersPage() {
       {loading ? <p className="text-text-subtle text-sm">Loading...</p> : (
         <>
           {/* Filter bar */}
-          <div className="flex items-end gap-2 mb-5 flex-wrap">
-            <div>
-              <p className={filterLabelCls}>Supplier</p>
+          <div className="space-y-2 mb-5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1" style={{ minWidth: 220 }}>
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
+                <input type="text" value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)}
+                  placeholder="Search PO number, supplier, item, code…" className={filterInputCls + ' pl-7'} />
+              </div>
               <select value={filterSupplier} onChange={(e) => setFilterSupplier(e.target.value)} className={filterInputCls} style={{ minWidth: 160 }}>
                 <option value="">All suppliers</option>
                 {suppliers.map((s) => <option key={s.id} value={s.id}>{s.company_name}</option>)}
               </select>
-            </div>
-            <div>
-              <p className={filterLabelCls}>From</p>
-              <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className={filterInputCls} />
-            </div>
-            <div>
-              <p className={filterLabelCls}>To</p>
-              <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className={filterInputCls} />
-            </div>
-            <div className="flex-1" style={{ minWidth: 140 }}>
-              <p className={filterLabelCls}>Item</p>
-              <div className="relative">
-                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
-                <input type="text" value={filterItem} onChange={(e) => setFilterItem(e.target.value)} placeholder="Search items…" className={filterInputCls + ' pl-7'} />
-              </div>
-            </div>
-            <div style={{ minWidth: 120 }}>
-              <p className={filterLabelCls}>Item Code</p>
-              <input type="text" value={filterCode} onChange={(e) => setFilterCode(e.target.value)} placeholder="e.g. ABC123" className={filterInputCls} />
-            </div>
-            <div className="flex items-end gap-3 pb-px">
+              <select value={datePreset} onChange={(e) => setDatePreset(e.target.value)} className={filterInputCls} style={{ minWidth: 160 }}>
+                <option value="">All dates</option>
+                <option value="7d">Sent last 7 days</option>
+                <option value="30d">Sent last 30 days</option>
+                <option value="month">This month</option>
+                <option value="custom">Custom range…</option>
+              </select>
               {isFiltered && (
                 <button type="button" onClick={clearFilters}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs text-text-muted border border-border rounded-md hover:bg-surface-hover hover:text-text transition-colors">
-                  <X size={11} /> Clear
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs text-text-muted border border-border rounded-md hover:bg-surface-hover hover:text-text transition-colors whitespace-nowrap">
+                  <X size={11} /> Clear filters
                 </button>
               )}
               {isFiltered && (
@@ -163,6 +182,14 @@ export default function PurchaseOrdersPage() {
                 </span>
               )}
             </div>
+            {datePreset === 'custom' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-muted shrink-0">From</span>
+                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className={filterInputCls} style={{ width: 150 }} />
+                <span className="text-xs text-text-muted shrink-0">to</span>
+                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className={filterInputCls} style={{ width: 150 }} />
+              </div>
+            )}
           </div>
 
         <div className="flex gap-6">
@@ -196,12 +223,11 @@ export default function PurchaseOrdersPage() {
                   <li key={po.id}>
                     <button type="button" onClick={() => setSelectedId(po.id)}
                       className={`w-full text-left px-3 py-2.5 rounded-md transition-colors ${isSel ? 'bg-accent text-accent-text' : 'hover:bg-surface-hover text-text'}`}>
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className={`text-[10px] font-mono ${isSel ? 'text-accent-text/70' : 'text-text-subtle'}`}>{po.po_number || 'Draft'}</span>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className={`text-sm font-semibold font-mono tracking-tight ${isSel ? 'text-accent-text' : 'text-text'}`}>{po.po_number || 'Draft'}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap ${sidebarStatusStyles[po.status] || ''}`}>{po.status}</span>
                       </div>
-                      <div className="text-xs font-medium truncate">{po.supplier_name || '—'}</div>
-                      <div className={`text-[11px] mt-0.5 ${isSel ? 'text-accent-text/60' : 'text-text-subtle'}`}>{po.order_date}</div>
+                      <div className={`text-sm truncate ${isSel ? 'text-accent-text/80' : 'text-text-muted'}`}>{po.supplier_name || '—'}</div>
                     </button>
                   </li>
                 )
@@ -237,13 +263,13 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
   onReload: () => Promise<void>
 }) {
   const [lines, setLines] = useState<PurchaseOrderLine[]>([])
-  const [jobs, setJobs] = useState<JobOption[]>([])
   const [workOrders, setWorkOrders] = useState<WorkOrderOption[]>([])
   const [emails, setEmails] = useState<POEmail[]>([])
   const [receipts, setReceipts] = useState<POReceipt[]>([])
   const [attachments, setAttachments] = useState<POAttachment[]>([])
   const [loadingLines, setLoadingLines] = useState(true)
   const [showSendModal, setShowSendModal] = useState(false)
+  const [sendSupplier, setSendSupplier] = useState<Supplier | null>(null)
   const [showReceiveModal, setShowReceiveModal] = useState(false)
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [sessionUnlocked, setSessionUnlocked] = useState(false)
@@ -253,15 +279,14 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
   const isLocked = isSent && !sessionUnlocked
 
   const loadLines = useCallback(async () => {
-    const [l, j, wo, em, rec, att] = await Promise.all([
+    const [l, wo, em, rec, att] = await Promise.all([
       getPurchaseOrderLines(po.id),
-      getJobOptions(),
       getWorkOrderOptions(),
       getPOEmails(po.id),
       getPOReceipts(po.id),
       getPOAttachments(po.id),
     ])
-    setLines(l); setJobs(j); setWorkOrders(wo); setEmails(em); setReceipts(rec); setAttachments(att)
+    setLines(l); setWorkOrders(wo); setEmails(em); setReceipts(rec); setAttachments(att)
     setLoadingLines(false)
   }, [po.id])
 
@@ -379,16 +404,16 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <Label>Delivery Name</Label>
-              <input type="text" defaultValue={po.delivery_name || ''} onBlur={blurSave('delivery_name')} placeholder="Deliver to…" className={inputCls} disabled={isLocked} />
+              <Label>Delivery Address</Label>
+              <input type="text" defaultValue={po.delivery_name || '32 Gateway Drive'} onBlur={blurSave('delivery_name')} placeholder="Street address" className={inputCls} disabled={isLocked} />
             </div>
             <div>
               <Label>Delivery Suburb</Label>
-              <input type="text" defaultValue={po.delivery_suburb || ''} onBlur={blurSave('delivery_suburb')} placeholder="Suburb" className={inputCls} disabled={isLocked} />
+              <input type="text" defaultValue={po.delivery_suburb || 'Noosaville'} onBlur={blurSave('delivery_suburb')} placeholder="Suburb" className={inputCls} disabled={isLocked} />
             </div>
             <div>
               <Label>Delivery Postcode</Label>
-              <input type="text" defaultValue={po.delivery_postcode || ''} onBlur={blurSave('delivery_postcode')} placeholder="Postcode" className={inputCls} disabled={isLocked} />
+              <input type="text" defaultValue={po.delivery_postcode || '4566'} onBlur={blurSave('delivery_postcode')} placeholder="Postcode" className={inputCls} disabled={isLocked} />
             </div>
           </div>
 
@@ -401,7 +426,11 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
 
         {/* Action buttons */}
         <div className="flex flex-col gap-2 pt-5 shrink-0">
-          <button type="button" onClick={() => setShowSendModal(true)}
+          <button type="button" onClick={async () => {
+              const sup = await getSupplierById(po.supplier_id)
+              setSendSupplier(sup)
+              setShowSendModal(true)
+            }}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover transition-colors whitespace-nowrap">
             <Send size={14} /> Email PO
           </button>
@@ -453,7 +482,7 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
                     </tr>
                   </thead>
                   {lines.map((line) => (
-                    <POLineRow key={line.id} line={line} jobs={jobs} workOrders={workOrders}
+                    <POLineRow key={line.id} line={line} workOrders={workOrders}
                       supplierId={po.supplier_id} locked={isLocked}
                       onUpdate={(patch) => handleUpdateLine(line.id, patch)}
                       onDelete={() => handleDeleteLine(line.id)}
@@ -583,7 +612,7 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
       )}
 
       {showSendModal && (
-        <SendModal po={po} suppliers={suppliers} attachments={attachments} onClose={() => setShowSendModal(false)}
+        <SendModal po={po} supplier={sendSupplier} attachments={attachments} onClose={() => setShowSendModal(false)}
           onSent={async () => { setShowSendModal(false); await onReload(); await loadLines() }} />
       )}
 
@@ -603,8 +632,11 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
   onClose: () => void
   onSaved: () => void
 }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [receivedAt, setReceivedAt] = useState(today)
+  const nowLocal = () => {
+    const d = new Date()
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  }
+  const [receivedAt, setReceivedAt] = useState(nowLocal)
   const [receivedBy, setReceivedBy] = useState('')
   const [notes, setNotes] = useState('')
   const [qtys, setQtys] = useState<Record<string, number>>(() => {
@@ -628,7 +660,7 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
     try {
       await createPOReceipt({
         purchase_order_id: po.id,
-        received_at: receivedAt,
+        received_at: new Date(receivedAt).toISOString(),
         received_by: receivedBy || null,
         notes: notes || null,
         lines: lines.map((l) => ({
@@ -657,8 +689,8 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
           {/* Receipt header */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <Label>Date Received</Label>
-              <input type="date" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} className={inputCls} />
+              <Label>Date &amp; Time Received</Label>
+              <input type="datetime-local" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} className={inputCls} />
             </div>
             <div className="col-span-2">
               <Label>Received By</Label>
@@ -760,16 +792,18 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
 
 // ── Send Modal ────────────────────────────────────────────────────────────────
 
-function SendModal({ po, suppliers, attachments, onClose, onSent }: {
+function SendModal({ po, supplier, attachments, onClose, onSent }: {
   po: PurchaseOrder
-  suppliers: Supplier[]
+  supplier: Supplier | null
   attachments: POAttachment[]
   onClose: () => void
   onSent: () => void
 }) {
-  const supplier = suppliers.find((s) => s.id === po.supplier_id)
   const [from, setFrom]     = useState('')
-  const [to, setTo]         = useState(supplier?.email || '')
+  const [to, setTo]         = useState(() => {
+    const allEmails = [supplier?.email, ...(supplier?.emails || [])].filter(Boolean)
+    return allEmails.join(', ')
+  })
   const [cc, setCc]         = useState('')
   const [bcc, setBcc]       = useState('')
   const [subject, setSubject] = useState(`Purchase Order ${po.po_number || ''} — RHK`)
@@ -885,16 +919,14 @@ function SendModal({ po, suppliers, attachments, onClose, onSent }: {
 
 // ── PO Line Row ───────────────────────────────────────────────────────────────
 
-function POLineRow({ line, jobs, workOrders, supplierId, locked, onUpdate, onDelete }: {
+function POLineRow({ line, workOrders, supplierId, locked, onUpdate, onDelete }: {
   line: PurchaseOrderLine
-  jobs: JobOption[]
   workOrders: WorkOrderOption[]
   supplierId: string
   locked: boolean
   onUpdate: (patch: Partial<PurchaseOrderLine>) => void
   onDelete: () => void
 }) {
-  const jobWorkOrders = workOrders.filter((wo) => wo.job_id === line.job_id)
   const lineTotal = (line.qty || 0) * (line.unit_cost || 0)
   const received = line.received_qty || 0
   const ordered  = line.qty || 0
@@ -929,26 +961,28 @@ function POLineRow({ line, jobs, workOrders, supplierId, locked, onUpdate, onDel
 
   return (
     <tbody className="border-b-2 border-border">
-      {/* Row 1 — Job / Work Order */}
+      {/* Row 1 — Work Order */}
       <tr className="bg-surface-muted">
         <td colSpan={7} className="px-3 py-1.5">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className="text-[10px] text-text-subtle shrink-0 uppercase tracking-wider">Job</span>
-              <select value={line.job_id || ''} disabled={locked}
-                onChange={(e) => onUpdate({ job_id: e.target.value || null, work_order_id: null })} className={contextCls}>
-                <option value="">— No job —</option>
-                {jobs.map((j) => <option key={j.id} value={j.id}>{j.job_number}{j.client_name ? ` · ${j.client_name}` : ''}{j.title ? ` · ${j.title}` : ''}</option>)}
-              </select>
-            </div>
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className="text-[10px] text-text-subtle shrink-0 uppercase tracking-wider">WO</span>
-              <select value={line.work_order_id || ''} disabled={locked || !line.job_id}
-                onChange={(e) => onUpdate({ work_order_id: e.target.value || null })} className={contextCls}>
-                <option value="">— None —</option>
-                {jobWorkOrders.map((wo) => <option key={wo.id} value={wo.id}>{wo.work_order_number || 'WO'}{wo.title ? ` · ${wo.title}` : ''}</option>)}
-              </select>
-            </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] text-text-subtle shrink-0 uppercase tracking-wider">WO</span>
+            <select
+              value={line.work_order_id || ''}
+              disabled={locked}
+              onChange={(e) => {
+                const woId = e.target.value || null
+                const wo = workOrders.find((w) => w.id === woId)
+                onUpdate({ work_order_id: woId, job_id: wo?.job_id ?? null })
+              }}
+              className={contextCls + ' flex-1'}
+            >
+              <option value="">— No work order —</option>
+              {workOrders.map((wo) => (
+                <option key={wo.id} value={wo.id}>
+                  {wo.work_order_number || 'WO'}{wo.client_name ? ` · ${wo.client_name}` : ''}{wo.job_title ? ` · ${wo.job_title}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </td>
         <td className="px-2 py-1.5 text-right">
@@ -1104,4 +1138,3 @@ const inputCls      = 'w-full px-3 py-2 text-sm bg-surface border border-border-
 const cellCls       = 'w-full px-1.5 py-1 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:text-text-faint'
 const contextCls    = 'flex-1 min-w-0 px-1.5 py-0.5 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none text-text-muted disabled:cursor-not-allowed'
 const filterInputCls = 'w-full px-2.5 py-2 text-xs bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-1 focus:ring-border text-text'
-const filterLabelCls = 'text-[10px] uppercase tracking-wider text-text-faint font-medium mb-1'
