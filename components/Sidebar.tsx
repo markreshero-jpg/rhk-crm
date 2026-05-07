@@ -17,7 +17,7 @@ const navItems = [
   { href: '/suppliers', label: 'Suppliers', icon: Truck },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, toggle } = useTheme()
@@ -53,6 +53,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                 isActive
                   ? 'bg-accent-hover text-accent-text'
@@ -70,6 +71,7 @@ export default function Sidebar() {
         </p>
         <Link
           href="/settings"
+          onClick={onClose}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-accent-text-muted hover:bg-accent-hover/50 hover:text-accent-text transition-colors"
         >
           <Settings size={16} />
