@@ -265,7 +265,7 @@ function StaffForm({ initialData, onSubmit, onCancel, submitLabel = 'Save' }: {
       const first = field === 'first_name' ? (value || '') : (form.first_name || '')
       const last = field === 'last_name' ? (value || '') : (form.last_name || '')
       if (!initialData?.display_name) {
-        setForm((p) => ({ ...p, [field]: value || null, display_name: `${first} ${last}`.trim() || null }))
+        setForm((p) => ({ ...p, [field]: value || null, display_name: `${first} ${last}`.trim() }))
       }
     }
   }
