@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink, BookmarkPlus, ArrowRightCircle } from 'lucide-react'
+import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink, BookmarkPlus, ArrowRightCircle, Lock, Unlock } from 'lucide-react'
 import {
   getIssuesByJobId,
   createIssue,
@@ -233,9 +233,11 @@ export default function JobQuoteTab({ jobId }: { jobId: string }) {
                       </span>
                       <span
                         className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
-                          isSelected
-                            ? 'bg-surface text-text border-border'
-                            : statusStyles[issue.status] || ''
+                          issue.status === 'Accepted' || issue.status === 'Locked'
+                            ? statusStyles[issue.status]
+                            : isSelected
+                              ? 'bg-surface text-text border-border'
+                              : statusStyles[issue.status] || ''
                         }`}
                       >
                         {issue.status}
@@ -312,8 +314,12 @@ function SelectedIssuePanel({
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showDupeSaveModal, setShowDupeSaveModal] = useState(false)
   const [showSendToWOModal, setShowSendToWOModal] = useState(false)
+  const [sessionUnlocked, setSessionUnlocked] = useState(false)
   const [reportsOpen, setReportsOpen] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
+
+  const isAccepted = issue.status === 'Accepted' || issue.status === 'Locked'
+  const isLocked = isAccepted && !sessionUnlocked
   const reportsRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLDivElement>(null)
 
@@ -328,6 +334,29 @@ function SelectedIssuePanel({
 
   return (
     <div>
+      {isAccepted && (
+        <div className={`flex items-center justify-between gap-4 px-4 py-3 rounded-lg border mb-4 ${isLocked ? 'bg-success-bg border-success-border' : 'bg-warning-bg border-warning-border'}`}>
+          <div className="flex items-center gap-2.5">
+            {isLocked ? <Lock size={14} className="text-success shrink-0" /> : <Unlock size={14} className="text-warning shrink-0" />}
+            <div>
+              <p className={`text-sm font-medium ${isLocked ? 'text-success' : 'text-warning'}`}>
+                {isLocked ? 'Quote accepted — locked for editing' : 'Editing unlocked for this session'}
+              </p>
+              <p className="text-xs text-text-subtle">
+                {isLocked ? 'This issue has been sent to a work order.' : 'Changes will be saved but the quote remains Accepted.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSessionUnlocked((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border transition-colors shrink-0 ${isLocked ? 'bg-surface text-text-muted border-border hover:bg-surface-hover' : 'bg-warning-bg text-warning border-warning-border hover:opacity-80'}`}
+          >
+            {isLocked ? <><Unlock size={11} /> Edit anyway</> : <><Lock size={11} /> Re-lock</>}
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">
           Quote Items
@@ -338,7 +367,8 @@ function SelectedIssuePanel({
             <button
               type="button"
               onClick={() => { setActionsOpen((o) => !o); setReportsOpen(false) }}
-              className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors"
+              disabled={isLocked}
+              className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover disabled:opacity-50 transition-colors"
             >
               <ChevronDown size={11} className={`transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
               <span>Actions</span>
@@ -486,6 +516,7 @@ function SelectedIssuePanel({
                   <QuoteItemRow
                     key={item.id}
                     item={item}
+                    isLocked={isLocked}
                     shouldFocus={focusItemId === item.id}
                     onFocused={onClearFocus}
                     onUpdateField={onUpdateField}
@@ -552,12 +583,14 @@ function SelectedIssuePanel({
 
 function QuoteItemRow({
   item,
+  isLocked,
   shouldFocus,
   onFocused,
   onUpdateField,
   onDelete,
 }: {
   item: QuoteItemWithTotal
+  isLocked: boolean
   shouldFocus: boolean
   onFocused: () => void
   onUpdateField: (id: string, field: keyof QuoteItem, value: string | number) => Promise<void>
@@ -574,29 +607,21 @@ function QuoteItemRow({
   }, [shouldFocus, onFocused])
 
   return (
-    <tr className="hover:bg-surface-hover transition-colors group">
+    <tr className={`transition-colors group ${isLocked ? 'opacity-75' : 'hover:bg-surface-hover'}`}>
       <td className="px-4 py-1.5">
-        <InlineNumberField
-          value={item.sort}
-          onSave={(v) => onUpdateField(item.id, 'sort', v)}
-          className="font-mono text-text-faint"
-        />
+        {isLocked
+          ? <span className="px-2 text-sm font-mono text-text-faint">{item.sort}</span>
+          : <InlineNumberField value={item.sort} onSave={(v) => onUpdateField(item.id, 'sort', v)} className="font-mono text-text-faint" />}
       </td>
       <td className="px-4 py-1.5">
-        <InlineTextField
-          ref={nameInputRef}
-          value={item.name}
-          onSave={(v) => onUpdateField(item.id, 'name', v)}
-          placeholder="Item name (e.g. Kitchen)"
-          className="font-medium text-text"
-        />
+        {isLocked
+          ? <span className="px-2 text-sm font-medium text-text">{item.name}</span>
+          : <InlineTextField ref={nameInputRef} value={item.name} onSave={(v) => onUpdateField(item.id, 'name', v)} placeholder="Item name (e.g. Kitchen)" className="font-medium text-text" />}
       </td>
       <td className="px-4 py-1.5">
-        <InlineNumberField
-          value={item.qty}
-          onSave={(v) => onUpdateField(item.id, 'qty', v)}
-          className="text-text-muted"
-        />
+        {isLocked
+          ? <span className="px-2 text-sm text-text-muted">{item.qty}</span>
+          : <InlineNumberField value={item.qty} onSave={(v) => onUpdateField(item.id, 'qty', v)} className="text-text-muted" />}
       </td>
       <td className="px-4 py-1.5 text-right">
         <span className="text-sm text-text tabular-nums pr-2">
@@ -606,23 +631,16 @@ function QuoteItemRow({
         </span>
       </td>
       <td className="px-4 py-1.5">
-        <Link
-          href={`/quote-items/${item.id}`}
-          className="text-text-faint hover:text-text"
-          title="Open quote item details"
-        >
+        <Link href={`/quote-items/${item.id}`} className="text-text-faint hover:text-text" title="Open quote item details">
           <ChevronRight size={16} />
         </Link>
       </td>
       <td className="px-4 py-1.5">
-        <button
-          type="button"
-          onClick={onDelete}
-          className="text-text-faint hover:text-danger"
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
+        {!isLocked && (
+          <button type="button" onClick={onDelete} className="text-text-faint hover:text-danger" title="Delete">
+            <Trash2 size={14} />
+          </button>
+        )}
       </td>
     </tr>
   )
