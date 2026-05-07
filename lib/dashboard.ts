@@ -25,6 +25,21 @@ export type WorkOrderSummary = {
   client_name: string | null
 }
 
+export type ScheduleEventSummary = {
+  id: string
+  title: string
+  trade_type: string | null
+  scheduled_date: string | null
+  start_time: string | null
+  end_time: string | null
+  staff_name: string | null
+  status: string
+  job_id: string
+  job_number: string | null
+  job_title: string | null
+  client_name: string | null
+}
+
 export type PODraftSummary = {
   id: string
   po_number: string | null
@@ -44,6 +59,7 @@ export type DashboardData = {
   inquiryJobs: JobSummary[]
   activeWorkOrders: WorkOrderSummary[]
   upcomingInstallations: WorkOrderSummary[]
+  upcomingScheduleEvents: ScheduleEventSummary[]
   draftPOs: PODraftSummary[]
 }
 
@@ -62,7 +78,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const todayStr = now.toISOString().slice(0, 10)
   const in14DaysStr = in14Days.toISOString().slice(0, 10)
 
-  const [jobsRes, clientsRes, workOrdersRes, installationsRes, draftPOsRes] = await Promise.all([
+  const [jobsRes, clientsRes, workOrdersRes, installationsRes, scheduleEventsRes, draftPOsRes] = await Promise.all([
     supabase
       .from('jobs')
       .select('id, job_number, title, status, site_suburb, created_at, client:clients(name), issues(total_ex_gst, status, issue_number)')
@@ -84,6 +100,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       .order('scheduled_start', { ascending: true })
       .limit(20),
     supabase
+      .from('job_schedule_events')
+      .select('id, title, trade_type, scheduled_date, start_time, end_time, status, staff:staff(display_name), job:jobs(id, job_number, title, client:clients(name))')
+      .ilike('trade_type', 'install')
+      .gte('scheduled_date', todayStr)
+      .lte('scheduled_date', in14DaysStr)
+      .not('status', 'in', '("Cancelled","Completed")')
+      .order('scheduled_date', { ascending: true })
+      .order('start_time', { ascending: true, nullsFirst: true })
+      .limit(40),
+    supabase
       .from('purchase_orders')
       .select('id, po_number, order_date, status, supplier:suppliers(company_name)')
       .eq('status', 'Draft')
@@ -95,6 +121,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   if (clientsRes.error) throw clientsRes.error
   if (workOrdersRes.error) throw workOrdersRes.error
   if (installationsRes.error) throw installationsRes.error
+  if (scheduleEventsRes.error) throw scheduleEventsRes.error
   if (draftPOsRes.error) throw draftPOsRes.error
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -140,6 +167,22 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const inquiryJobs = jobs.filter((j) => j.status === 'Inquiry')
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const upcomingScheduleEvents: ScheduleEventSummary[] = (scheduleEventsRes.data || []).map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    trade_type: e.trade_type,
+    scheduled_date: e.scheduled_date,
+    start_time: e.start_time,
+    end_time: e.end_time,
+    staff_name: e.staff?.display_name ?? null,
+    status: e.status,
+    job_id: e.job?.id ?? '',
+    job_number: e.job?.job_number ?? null,
+    job_title: e.job?.title ?? null,
+    client_name: e.job?.client?.name ?? null,
+  }))
+
   return {
     jobsByStatus,
     totalJobs: jobs.length,
@@ -151,6 +194,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     inquiryJobs:       inquiryJobs.map(toSummary),
     activeWorkOrders:  mapWorkOrders(workOrdersRes.data || []),
     upcomingInstallations: mapWorkOrders(installationsRes.data || []),
+    upcomingScheduleEvents,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     draftPOs: (draftPOsRes.data || []).map((po: any) => ({
       id: po.id,

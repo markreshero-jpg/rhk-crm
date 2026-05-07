@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Client } from '@/lib/clients'
 import EditableSelect from './EditableSelect'
+import AddressAutocomplete from './AddressAutocomplete'
 
 type ClientFormProps = {
   initialData?: Partial<Client>
@@ -199,10 +200,14 @@ export default function ClientForm({
         </h3>
 
         <Field label="Street Address">
-          <input
-            type="text"
+          <AddressAutocomplete
             value={formData.address_line_1 || ''}
-            onChange={(e) => handleChange('address_line_1', e.target.value)}
+            onChange={(v) => handleChange('address_line_1', v)}
+            onAddressSelect={({ address_line_1, suburb, postcode }) => {
+              handleChange('address_line_1', address_line_1)
+              handleChange('suburb', suburb)
+              handleChange('postcode', postcode)
+            }}
             className={inputClass}
           />
         </Field>

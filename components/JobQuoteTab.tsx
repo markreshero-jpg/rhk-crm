@@ -34,6 +34,7 @@ import {
   getQuoteItemsForImport,
   importQuoteItemsToWorkOrder,
 } from '@/lib/workOrders'
+import { importLabourFromIssue } from '@/lib/jobSchedule'
 import {
   getAllTermsTemplates,
   TermsTemplate,
@@ -830,6 +831,7 @@ function SendToWorkOrderModal({ issue, quoteItems, onClose, onSent }: {
       if (allIds.length > 0) {
         await importQuoteItemsToWorkOrder(wo.id, issue.id, allIds)
       }
+      await importLabourFromIssue(issue.job_id, wo.id, issue.id)
       await updateIssue(issue.id, { status: 'Accepted', accepted_at: new Date().toISOString() })
       await onSent()
       router.push(`/jobs/${issue.job_id}?tab=work-orders`)

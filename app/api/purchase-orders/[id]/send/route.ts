@@ -180,8 +180,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     resend_message_id: resendMessageId,
   })
 
-  // Update status to Sent
-  await updatePurchaseOrder(poId, { status: 'Sent' })
+  // Update status and sent timestamp
+  await updatePurchaseOrder(poId, { status: 'Sent', sent_at: new Date().toISOString() })
 
   return NextResponse.json({ ok: true, resendMessageId })
 }

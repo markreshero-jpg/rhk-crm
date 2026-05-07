@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import JobForm from '@/components/JobForm'
 import JobQuoteTab from '@/components/JobQuoteTab'
 import WorkOrdersTab from '@/components/WorkOrdersTab'
+import JobScheduleTab from '@/components/JobScheduleTab'
 import Tabs from '@/components/Tabs'
 import {
   getJobById,
@@ -63,6 +64,7 @@ export default function JobWorkspacePage({
     { id: 'details', label: 'Details' },
     { id: 'quote', label: 'Quote' },
     { id: 'work-orders', label: 'Work Orders' },
+    { id: 'schedule', label: 'Schedule' },
     { id: 'calendar', label: 'Calendar' },
   ]
 
@@ -105,6 +107,8 @@ export default function JobWorkspacePage({
         {activeTab === 'quote' && <JobQuoteTab jobId={id} />}
 
         {activeTab === 'work-orders' && <WorkOrdersTab jobId={id} />}
+
+        {activeTab === 'schedule' && <JobScheduleTab jobId={id} />}
 
         {activeTab === 'calendar' && (
           <div className="text-text-subtle text-sm p-12 text-center">

@@ -12,8 +12,8 @@ import {
   generateWorkOrderNumber, getPOStatusForWOLines,
 } from '@/lib/workOrders'
 import {
-  PurchaseOrder, POSendAssignment,
-  getDraftPOsBySupplier, sendWOLinesToPO,
+  PurchaseOrder, PurchaseOrderLine, POSendAssignment,
+  getDraftPOsBySupplier, sendWOLinesToPO, getPurchaseOrderLines, getPurchaseOrders,
 } from '@/lib/purchaseOrders'
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { stageBadgeStyles } from '@/lib/stageStyles'
@@ -134,6 +134,7 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
   const [loadingLines, setLoadingLines] = useState(true)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showPOModal, setShowPOModal] = useState(false)
+  const [viewingPoId, setViewingPoId] = useState<string | null>(null)
 
   const loadLines = useCallback(async () => {
     const [l, s, opts] = await Promise.all([
@@ -292,6 +293,7 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
                 onDeleteLine={handleDeleteLine}
                 onUpdateGroupStatus={(patch) => handleUpdateGroupStatus(group.name, patch)}
                 onToggleGroupPO={(value) => handleToggleGroupPO(group.name, value)}
+                onViewPO={setViewingPoId}
               />
             ))}
 
@@ -329,6 +331,10 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
             <p className="mt-1.5 text-xs text-text-subtle">Check &quot;Send to PO&quot; on lines to enable.</p>
           )}
         </div>
+      )}
+
+      {viewingPoId && (
+        <POPreviewModal poId={viewingPoId} onClose={() => setViewingPoId(null)} />
       )}
 
       {showImportModal && (
@@ -517,7 +523,7 @@ function SendToPOModal({ tickedLines, suppliers, jobId, onClose, onSent }: {
 
 // ── Item Group (expandable) ───────────────────────────────────────────────────
 
-function ItemGroup({ group, suppliers, statusOptions, poStatusMap, onUpdateLine, onDeleteLine, onUpdateGroupStatus, onToggleGroupPO }: {
+function ItemGroup({ group, suppliers, statusOptions, poStatusMap, onUpdateLine, onDeleteLine, onUpdateGroupStatus, onToggleGroupPO, onViewPO }: {
   group: LineGroup
   suppliers: Supplier[]
   statusOptions: LineStatusOption[]
@@ -526,6 +532,7 @@ function ItemGroup({ group, suppliers, statusOptions, poStatusMap, onUpdateLine,
   onDeleteLine: (id: string) => void
   onUpdateGroupStatus: (patch: { stage: string; status: string }) => void
   onToggleGroupPO: (value: boolean) => void
+  onViewPO: (poId: string) => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const checkboxRef = useRef<HTMLInputElement>(null)
@@ -608,7 +615,6 @@ function ItemGroup({ group, suppliers, statusOptions, poStatusMap, onUpdateLine,
                 <Th right>Qty</Th>
                 <Th right>Unit Cost</Th>
                 <Th right>Total</Th>
-                <Th>Required By</Th>
                 <Th />
               </tr>
             </thead>
@@ -617,14 +623,15 @@ function ItemGroup({ group, suppliers, statusOptions, poStatusMap, onUpdateLine,
                 <LineRow key={line.id} line={line} suppliers={suppliers}
                   poStatus={poStatusMap.get(line.id) ?? null}
                   onUpdate={(patch) => onUpdateLine(line.id, patch)}
-                  onDelete={() => onDeleteLine(line.id)} />
+                  onDelete={() => onDeleteLine(line.id)}
+                  onViewPO={onViewPO} />
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t border-border bg-surface-muted">
                 <td colSpan={7} className="py-1.5 px-3 text-right text-xs text-text-muted">Group total (ex GST)</td>
                 <td className="py-1.5 pr-3 text-right text-xs font-semibold text-text">{formatCurrency(group.total)}</td>
-                <td colSpan={2} />
+                <td colSpan={1} />
               </tr>
             </tfoot>
           </table>
@@ -636,12 +643,13 @@ function ItemGroup({ group, suppliers, statusOptions, poStatusMap, onUpdateLine,
 
 // ── Line Row ──────────────────────────────────────────────────────────────────
 
-function LineRow({ line, suppliers, poStatus, onUpdate, onDelete }: {
+function LineRow({ line, suppliers, poStatus, onUpdate, onDelete, onViewPO }: {
   line: WorkOrderLine
   suppliers: Supplier[]
   poStatus: WOLinePOStatus | null
   onUpdate: (patch: Partial<WorkOrderLine>) => void
   onDelete: () => void
+  onViewPO: (poId: string) => void
 }) {
   const total = (line.qty || 0) * (line.unit_cost || 0)
   const locked = !!poStatus
@@ -656,10 +664,11 @@ function LineRow({ line, suppliers, poStatus, onUpdate, onDelete }: {
     <tr className={`border-b border-border group ${locked ? 'bg-emerald-50/40' : 'hover:bg-surface-hover'}`}>
       <td className="px-2 py-1 text-center w-10">
         {locked ? (
-          <a href="/purchase-orders" title={`On ${poStatus.po_number || 'PO'}`}
+          <button type="button" onClick={() => onViewPO(poStatus!.purchase_order_id)}
+            title={`View ${poStatus!.po_number || 'PO'}`}
             className="inline-flex items-center justify-center text-success hover:opacity-80 transition-opacity">
             <CheckCircle2 size={14} />
-          </a>
+          </button>
         ) : (
           <input type="checkbox" checked={line.include_on_po}
             onChange={(e) => onUpdate({ include_on_po: e.target.checked })}
@@ -671,7 +680,7 @@ function LineRow({ line, suppliers, poStatus, onUpdate, onDelete }: {
           ? <span className="px-1.5 text-xs text-text-muted">{line.item || '—'}</span>
           : <input type="text" defaultValue={line.item || ''} onBlur={blurText('item')} placeholder="Item" className={cellCls} />}
       </td>
-      <td className="px-1 py-1 min-w-[140px]">
+      <td className="px-1 py-1 min-w-[220px]">
         {locked
           ? <span className="px-1.5 text-xs text-text-subtle">{line.description || '—'}</span>
           : <input type="text" defaultValue={line.description || ''} onBlur={blurText('description')} placeholder="Description" className={cellCls} />}
@@ -700,11 +709,6 @@ function LineRow({ line, suppliers, poStatus, onUpdate, onDelete }: {
           : <input type="number" defaultValue={line.unit_cost} onBlur={blurNum('unit_cost')} min={0} step={0.01} className={cellCls + ' text-right'} />}
       </td>
       <td className="px-2 py-1 w-24 text-right text-text font-medium">{formatCurrency(total)}</td>
-      <td className="px-1 py-1 w-28">
-        {locked
-          ? <span className="px-1.5 text-xs text-text-faint">{line.required_by || '—'}</span>
-          : <input type="date" defaultValue={line.required_by || ''} onBlur={(e) => onUpdate({ required_by: e.target.value || null })} className={cellCls} />}
-      </td>
       <td className="px-2 py-1 w-8 text-center">
         {!locked && (
           <button type="button" onClick={onDelete} className="text-text-faint hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity">
@@ -713,6 +717,134 @@ function LineRow({ line, suppliers, poStatus, onUpdate, onDelete }: {
         )}
       </td>
     </tr>
+  )
+}
+
+// ── PO Preview Modal ──────────────────────────────────────────────────────────
+
+function POPreviewModal({ poId, onClose }: { poId: string; onClose: () => void }) {
+  const [po, setPo] = useState<PurchaseOrder | null>(null)
+  const [lines, setLines] = useState<PurchaseOrderLine[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getPurchaseOrders(), getPurchaseOrderLines(poId)]).then(([allPos, poLines]) => {
+      setPo(allPos.find((p) => p.id === poId) ?? null)
+      setLines(poLines)
+      setLoading(false)
+    })
+  }, [poId])
+
+  const subtotal = lines.reduce((s, l) => s + (l.qty || 0) * (l.unit_cost || 0), 0)
+
+  const statusColour: Record<string, string> = {
+    'Draft':         'bg-gray-100 text-gray-500',
+    'Sent':          'bg-blue-100 text-blue-700',
+    'Confirmed':     'bg-emerald-100 text-emerald-700',
+    'Part Received': 'bg-amber-100 text-amber-700',
+    'Received':      'bg-emerald-100 text-emerald-700',
+    'Cancelled':     'bg-red-50 text-red-400',
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <ShoppingCart size={16} className="text-text-muted" />
+            <h2 className="text-base font-semibold text-text">
+              {po?.po_number || 'Purchase Order'}
+            </h2>
+            {po && (
+              <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${statusColour[po.status] || ''}`}>
+                {po.status}
+              </span>
+            )}
+          </div>
+          <button type="button" onClick={onClose} className="text-text-faint hover:text-text text-lg leading-none">×</button>
+        </div>
+
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <p className="text-text-subtle text-sm">Loading…</p>
+          </div>
+        ) : !po ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <p className="text-text-subtle text-sm">Purchase order not found.</p>
+          </div>
+        ) : (
+          <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+            {/* Meta */}
+            <div className="grid grid-cols-3 gap-4 text-xs">
+              <div>
+                <p className="text-text-subtle mb-0.5">Supplier</p>
+                <p className="text-text font-medium">{po.supplier_name || '—'}</p>
+              </div>
+              <div>
+                <p className="text-text-subtle mb-0.5">Order Date</p>
+                <p className="text-text">{po.order_date || '—'}</p>
+              </div>
+              <div>
+                <p className="text-text-subtle mb-0.5">Required By</p>
+                <p className="text-text">{po.required_by || '—'}</p>
+              </div>
+            </div>
+
+            {/* Lines */}
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-1.5 px-2 text-left text-[10px] uppercase tracking-widest text-text-subtle font-medium">Item</th>
+                  <th className="py-1.5 px-2 text-left text-[10px] uppercase tracking-widest text-text-subtle font-medium">Code</th>
+                  <th className="py-1.5 px-2 text-right text-[10px] uppercase tracking-widest text-text-subtle font-medium">Qty</th>
+                  <th className="py-1.5 px-2 text-right text-[10px] uppercase tracking-widest text-text-subtle font-medium">Unit</th>
+                  <th className="py-1.5 px-2 text-right text-[10px] uppercase tracking-widest text-text-subtle font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l) => (
+                  <tr key={l.id} className="border-b border-border/50 hover:bg-surface-hover">
+                    <td className="py-1.5 px-2 text-text">{l.item || '—'}</td>
+                    <td className="py-1.5 px-2 font-mono text-text-muted">{l.item_code || '—'}</td>
+                    <td className="py-1.5 px-2 text-right text-text-muted">{l.qty}</td>
+                    <td className="py-1.5 px-2 text-right text-text-muted">{formatCurrency(l.unit_cost)}</td>
+                    <td className="py-1.5 px-2 text-right text-text font-medium">{formatCurrency(l.qty * l.unit_cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Totals */}
+            <div className="flex justify-end">
+              <div className="space-y-0.5 text-xs">
+                <div className="flex justify-between gap-12 text-text-muted">
+                  <span>Subtotal (ex GST)</span><span>{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between gap-12 text-text-muted">
+                  <span>GST (10%)</span><span>{formatCurrency(subtotal * 0.1)}</span>
+                </div>
+                <div className="flex justify-between gap-12 font-semibold text-text">
+                  <span>Total (inc GST)</span><span>{formatCurrency(subtotal * 1.1)}</span>
+                </div>
+              </div>
+            </div>
+
+            {po.notes && (
+              <div className="text-xs text-text-muted border-t border-border pt-3">
+                <span className="font-medium text-text-subtle">Notes: </span>{po.notes}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="px-6 py-4 border-t border-border shrink-0 flex justify-end">
+          <button type="button" onClick={onClose}
+            className="px-4 py-2 text-sm text-text-muted border border-border rounded-md hover:bg-surface-hover transition-colors">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

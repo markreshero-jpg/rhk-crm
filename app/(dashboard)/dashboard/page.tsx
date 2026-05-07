@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getDashboardData, DashboardData, WorkOrderSummary, PODraftSummary } from '@/lib/dashboard'
+import { getDashboardData, DashboardData, WorkOrderSummary, ScheduleEventSummary, PODraftSummary } from '@/lib/dashboard'
 
 const PIPELINE_STAGES = ['Inquiry', 'Quote Sent', 'Quote Accepted', 'In Production', 'Completed']
 
@@ -20,6 +20,14 @@ function fmtCurrency(value: number | null | undefined): string {
 function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+}
+
+function fmtTime(t: string | null): string {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'pm' : 'am'
+  const h12 = h % 12 || 12
+  return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, '0')}${ampm}`
 }
 
 function statusBadgeClass(status: string | null): string {
@@ -189,14 +197,14 @@ export default function DashboardPage() {
             <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
                 <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Installations · Next 14 Days</p>
-                <span className="text-xs text-text-faint">{(data?.upcomingInstallations ?? []).length}</span>
+                <span className="text-xs text-text-faint">{(data?.upcomingScheduleEvents ?? []).length}</span>
               </div>
-              {(data?.upcomingInstallations ?? []).length === 0 ? (
+              {(data?.upcomingScheduleEvents ?? []).length === 0 ? (
                 <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">Nothing scheduled</p>
               ) : (
                 <div className="divide-y divide-border overflow-y-auto flex-1">
-                  {(data?.upcomingInstallations ?? []).map((wo) => (
-                    <WorkOrderRow key={wo.id} wo={wo} />
+                  {(data?.upcomingScheduleEvents ?? []).map((evt) => (
+                    <ScheduleEventRow key={evt.id} evt={evt} />
                   ))}
                 </div>
               )}
@@ -233,6 +241,41 @@ function WorkOrderRow({ wo }: { wo: WorkOrderSummary }) {
             {fmtDate(wo.scheduled_start)}{wo.scheduled_end ? ` – ${fmtDate(wo.scheduled_end)}` : ''}
           </p>
         )}
+      </div>
+    </Link>
+  )
+}
+
+function ScheduleEventRow({ evt }: { evt: ScheduleEventSummary }) {
+  const statusStyles: Record<string, string> = {
+    'Unscheduled': 'bg-surface-muted text-text-muted border-border',
+    'Scheduled':   'bg-info-bg text-info border-info-border',
+    'In Progress': 'bg-warning-bg text-warning border-warning-border',
+  }
+  return (
+    <Link href={`/jobs/${evt.job_id}?tab=schedule`} className="block px-5 py-3 hover:bg-surface-hover transition-colors">
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <div className="flex items-center gap-2 min-w-0">
+          {evt.trade_type && (
+            <span className="text-[10px] font-medium text-text-subtle shrink-0 bg-surface-muted px-1.5 py-0.5 rounded border border-border">{evt.trade_type}</span>
+          )}
+          <span className="text-sm text-text truncate">{evt.title || 'Untitled'}</span>
+        </div>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${statusStyles[evt.status] || 'bg-surface-muted text-text-muted border-border'}`}>
+          {evt.status}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-text-muted truncate">
+          {evt.client_name && <span>{evt.client_name} · </span>}
+          {evt.job_number && <span className="font-mono">{evt.job_number}</span>}
+          {evt.job_title && <span> · {evt.job_title}</span>}
+        </p>
+        <p className="text-[11px] text-text-subtle shrink-0 tabular-nums">
+          {evt.scheduled_date ? fmtDate(evt.scheduled_date) : ''}
+          {evt.start_time ? ` ${fmtTime(evt.start_time)}` : ''}
+          {evt.staff_name ? ` · ${evt.staff_name}` : ''}
+        </p>
       </div>
     </Link>
   )

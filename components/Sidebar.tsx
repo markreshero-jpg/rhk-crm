@@ -38,7 +38,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
           alt="Resident Hero"
           width={160}
           height={48}
-          className="w-full max-w-[160px] h-auto object-contain"
+          className="w-full max-w-[160px] h-auto object-contain mix-blend-screen"
           priority
         />
         {process.env.NODE_ENV === 'development' && (

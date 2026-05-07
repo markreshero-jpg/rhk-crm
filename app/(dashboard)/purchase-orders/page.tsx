@@ -366,7 +366,7 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
               <input type="text" defaultValue={po.po_number || ''} onBlur={blurSave('po_number')} placeholder="RH001"
                 className={inputCls} disabled={isLocked} />
             </div>
-            <div className="col-span-4">
+            <div className="col-span-3">
               <Label>Supplier</Label>
               <select defaultValue={po.supplier_id} onChange={(e) => !isLocked && onUpdate({ supplier_id: e.target.value })}
                 className={inputCls} disabled={isLocked}>
@@ -374,9 +374,16 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
               </select>
             </div>
             <div className="col-span-2">
-              <Label>Order Date</Label>
+              <Label>Order Created</Label>
               <input type="date" defaultValue={po.order_date?.slice(0, 10) || ''} onBlur={blurSave('order_date')}
                 className={inputCls} disabled={isLocked} />
+            </div>
+            <div className="col-span-2">
+              <Label>Order Sent</Label>
+              <input type="date" value={po.sent_at?.slice(0, 10) || ''} readOnly
+                placeholder="Not sent yet"
+                disabled={!!po.sent_at}
+                className={inputCls + ' cursor-default'} />
             </div>
             <div className="col-span-2">
               <Label>Status</Label>
@@ -427,12 +434,13 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
         {/* Action buttons */}
         <div className="flex flex-col gap-2 pt-5 shrink-0">
           <button type="button" onClick={async () => {
+              if (po.sent_at && !confirm(`This PO was already sent on ${po.sent_at.slice(0, 10)}. Send again?`)) return
               const sup = await getSupplierById(po.supplier_id)
               setSendSupplier(sup)
               setShowSendModal(true)
             }}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover transition-colors whitespace-nowrap">
-            <Send size={14} /> Email PO
+            className={`flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-colors whitespace-nowrap ${po.sent_at ? 'bg-surface border border-border text-text-muted hover:bg-surface-hover' : 'bg-accent text-accent-text hover:bg-accent-hover'}`}>
+            <Send size={14} /> {po.sent_at ? 'Resend PO' : 'Email PO'}
           </button>
           {isSent && (
             <button type="button" onClick={() => setShowReceiveModal(true)}
