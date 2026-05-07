@@ -11,7 +11,10 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient()
 
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(email)
+    const origin = new URL(req.url).origin
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${origin}/auth/confirm`,
+    })
 
     let authUserId: string
 
