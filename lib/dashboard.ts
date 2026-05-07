@@ -25,6 +25,14 @@ export type WorkOrderSummary = {
   client_name: string | null
 }
 
+export type PODraftSummary = {
+  id: string
+  po_number: string | null
+  supplier_name: string | null
+  order_date: string | null
+  status: string
+}
+
 export type DashboardData = {
   jobsByStatus: Record<string, number>
   totalJobs: number
@@ -36,6 +44,7 @@ export type DashboardData = {
   inquiryJobs: JobSummary[]
   activeWorkOrders: WorkOrderSummary[]
   upcomingInstallations: WorkOrderSummary[]
+  draftPOs: PODraftSummary[]
 }
 
 // Pick the most relevant issue total: prefer Accepted, fall back to latest issue number
@@ -53,7 +62,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const todayStr = now.toISOString().slice(0, 10)
   const in14DaysStr = in14Days.toISOString().slice(0, 10)
 
-  const [jobsRes, clientsRes, workOrdersRes, installationsRes] = await Promise.all([
+  const [jobsRes, clientsRes, workOrdersRes, installationsRes, draftPOsRes] = await Promise.all([
     supabase
       .from('jobs')
       .select('id, job_number, title, status, site_suburb, created_at, client:clients(name), issues(total_ex_gst, status, issue_number)')
@@ -74,12 +83,19 @@ export async function getDashboardData(): Promise<DashboardData> {
       .lte('scheduled_start', in14DaysStr)
       .order('scheduled_start', { ascending: true })
       .limit(20),
+    supabase
+      .from('purchase_orders')
+      .select('id, po_number, order_date, status, supplier:suppliers(company_name)')
+      .eq('status', 'Draft')
+      .order('created_at', { ascending: false })
+      .limit(50),
   ])
 
   if (jobsRes.error) throw jobsRes.error
   if (clientsRes.error) throw clientsRes.error
   if (workOrdersRes.error) throw workOrdersRes.error
   if (installationsRes.error) throw installationsRes.error
+  if (draftPOsRes.error) throw draftPOsRes.error
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jobs = (jobsRes.data || []) as any[]
@@ -135,5 +151,13 @@ export async function getDashboardData(): Promise<DashboardData> {
     inquiryJobs:       inquiryJobs.map(toSummary),
     activeWorkOrders:  mapWorkOrders(workOrdersRes.data || []),
     upcomingInstallations: mapWorkOrders(installationsRes.data || []),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    draftPOs: (draftPOsRes.data || []).map((po: any) => ({
+      id: po.id,
+      po_number: po.po_number,
+      supplier_name: po.supplier?.company_name ?? null,
+      order_date: po.order_date,
+      status: po.status,
+    })),
   }
 }

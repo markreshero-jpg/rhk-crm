@@ -7,7 +7,7 @@ import {
   WorkOrderWithJob, WorkOrderLine, WOLineWithContext, WOLinePOStatus, LineGroup,
   WORK_ORDER_STATUSES,
   searchWorkOrders, getWorkOrderLinesByWorkOrderId, groupWorkOrderLines,
-  updateWorkOrderLine, getIncludeOnPOLines, countIncludeOnPOLines, getPOStatusForWOLines,
+  getIncludeOnPOLines, countIncludeOnPOLines, getPOStatusForWOLines, updateWorkOrderLine,
 } from '@/lib/workOrders'
 import {
   PurchaseOrder, POSendAssignment,
@@ -197,10 +197,7 @@ export default function WorkOrdersListPage() {
                   expanded={expandedIds.has(wo.id)}
                   lines={linesCache.get(wo.id) ?? null}
                   loadingLines={loadingLines.has(wo.id)}
-                  poStatusMap={poStatusCache.get(wo.id) ?? new Map()}
-                  supplierNames={supplierNames}
                   onToggle={() => toggleExpand(wo.id)}
-                  onLineToggle={(lineId, checked) => handleLineToggle(wo.id, lineId, checked)}
                 />
               ))}
             </tbody>
@@ -215,15 +212,12 @@ export default function WorkOrdersListPage() {
 
 // ── Work Order Row ─────────────────────────────────────────────────────────────
 
-function WorkOrderRow({ wo, expanded, lines, loadingLines, poStatusMap, supplierNames, onToggle, onLineToggle }: {
+function WorkOrderRow({ wo, expanded, lines, loadingLines, onToggle }: {
   wo: WorkOrderWithJob
   expanded: boolean
   lines: WorkOrderLine[] | null
   loadingLines: boolean
-  poStatusMap: Map<string, WOLinePOStatus>
-  supplierNames: Map<string, string>
   onToggle: () => void
-  onLineToggle: (lineId: string, checked: boolean) => void
 }) {
   const groups = lines ? groupWorkOrderLines(lines) : []
   const scheduled = wo.scheduled_start
@@ -266,30 +260,15 @@ function WorkOrderRow({ wo, expanded, lines, loadingLines, poStatusMap, supplier
             ) : groups.length === 0 ? (
               <p className="text-xs text-text-faint italic py-2">No items on this work order.</p>
             ) : (
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="w-7 pb-2" />
-                    <th className="text-left pb-2 text-[10px] uppercase tracking-widest font-medium text-text-faint pr-3">Item</th>
-                    <th className="text-left pb-2 text-[10px] uppercase tracking-widest font-medium text-text-faint pr-3">Description</th>
-                    <th className="text-right pb-2 text-[10px] uppercase tracking-widest font-medium text-text-faint pr-3 w-12">Qty</th>
-                    <th className="text-right pb-2 text-[10px] uppercase tracking-widest font-medium text-text-faint pr-3 w-24">Unit Cost</th>
-                    <th className="text-left pb-2 text-[10px] uppercase tracking-widest font-medium text-text-faint pr-3 w-32">Supplier</th>
-                    <th className="text-left pb-2 text-[10px] uppercase tracking-widest font-medium text-text-faint w-24">PO</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((group) => (
-                    <GroupSection
-                      key={group.name}
-                      group={group}
-                      poStatusMap={poStatusMap}
-                      supplierNames={supplierNames}
-                      onLineToggle={onLineToggle}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              <div className="flex flex-wrap gap-2">
+                {groups.map((group) => (
+                  <div key={group.name} className="flex items-center gap-2.5 px-3 py-1.5 bg-surface border border-border rounded-md text-xs">
+                    <span className="font-medium text-text">{group.name}</span>
+                    <span className="text-text-faint">{group.lines.length} line{group.lines.length !== 1 ? 's' : ''}</span>
+                    <span className="text-text-muted tabular-nums">{formatCurrency(group.total)}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </td>
         </tr>

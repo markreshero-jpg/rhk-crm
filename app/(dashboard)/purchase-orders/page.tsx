@@ -648,10 +648,43 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
     return init
   })
   const [lineNotes, setLineNotes] = useState<Record<string, string>>({})
+  const [labelChecks, setLabelChecks] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {}
+    for (const l of lines) init[l.id] = true
+    return init
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const hasAnything = Object.values(qtys).some((q) => q > 0)
+  const labelCount = lines.filter((l) => labelChecks[l.id]).length
+
+  function handlePrintLabels() {
+    const toPrint = lines.filter((l) => labelChecks[l.id])
+    if (!toPrint.length) return
+    const win = window.open('', '_blank', 'width=500,height=400')
+    if (!win) return
+    const labelHtml = toPrint.map((l) => `
+      <div class="label">
+        <div class="wo">${l.work_order_number || l.job_number || '—'}</div>
+        <div class="client">${l.client_name || '—'}</div>
+        ${l.item ? `<div class="item">${l.item}${l.item_code ? ` &middot; ${l.item_code}` : ''}</div>` : ''}
+        <div class="po">PO: ${po.po_number || '—'}</div>
+      </div>`).join('')
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      @page { size: 89mm 36mm; margin: 0; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, Helvetica, sans-serif; }
+      .label { width: 89mm; height: 36mm; padding: 3mm 5mm; page-break-after: always; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+      .label:last-child { page-break-after: avoid; }
+      .wo { font-size: 17pt; font-weight: 700; line-height: 1.1; }
+      .client { font-size: 11pt; margin-top: 1.5mm; }
+      .item { font-size: 8pt; color: #555; margin-top: 1mm; }
+      .po { font-size: 7pt; color: #999; margin-top: 2mm; }
+    </style></head><body>${labelHtml}</body></html>`)
+    win.document.close()
+    setTimeout(() => { win.focus(); win.print() }, 300)
+  }
 
   async function handleSave() {
     if (!hasAnything) { setError('Enter a quantity for at least one line.'); return }
@@ -712,7 +745,8 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
                 <th className="text-right pb-2 text-[10px] uppercase tracking-wider text-text-faint font-medium pr-3 w-20">Ordered</th>
                 <th className="text-right pb-2 text-[10px] uppercase tracking-wider text-text-faint font-medium pr-3 w-20">Already<br/>Received</th>
                 <th className="text-right pb-2 text-[10px] uppercase tracking-wider text-text-faint font-medium pr-3 w-24">Outstanding</th>
-                <th className="text-right pb-2 text-[10px] uppercase tracking-wider text-text-faint font-medium w-28">Receive Now</th>
+                <th className="text-right pb-2 text-[10px] uppercase tracking-wider text-text-faint font-medium pr-3 w-28">Receive Now</th>
+                <th className="text-center pb-2 text-[10px] uppercase tracking-wider text-text-faint font-medium w-12">Label</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -752,7 +786,7 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
                         ? <span className="flex items-center justify-end gap-1 text-success"><CheckCircle2 size={12} /> Done</span>
                         : <span className="text-text font-medium">{outstanding}</span>}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 pr-3 text-right">
                       {fullyReceived ? (
                         <span className="text-text-faint text-[11px]">—</span>
                       ) : (
@@ -765,6 +799,14 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
                           className="w-20 px-2 py-1 text-right text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent tabular-nums"
                         />
                       )}
+                    </td>
+                    <td className="py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={labelChecks[l.id] ?? true}
+                        onChange={(e) => setLabelChecks((p) => ({ ...p, [l.id]: e.target.checked }))}
+                        className="accent-accent w-3.5 h-3.5"
+                      />
                     </td>
                   </tr>
                 )
@@ -780,6 +822,10 @@ function ReceiveGoodsModal({ po, lines, onClose, onSaved }: {
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50 transition-colors">
             <Package size={14} />
             {saving ? 'Saving…' : 'Record Receipt'}
+          </button>
+          <button type="button" onClick={handlePrintLabels} disabled={labelCount === 0}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm bg-surface border border-border text-text-muted rounded-md hover:bg-surface-hover disabled:opacity-40 transition-colors whitespace-nowrap">
+            <Printer size={14} /> Print Labels{labelCount > 0 ? ` (${labelCount})` : ''}
           </button>
           <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-text-muted hover:text-text border border-border rounded-md hover:bg-surface-hover transition-colors">
             Cancel

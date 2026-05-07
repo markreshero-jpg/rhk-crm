@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getDashboardData, DashboardData, WorkOrderSummary } from '@/lib/dashboard'
+import { getDashboardData, DashboardData, WorkOrderSummary, PODraftSummary } from '@/lib/dashboard'
 
 const PIPELINE_STAGES = ['Inquiry', 'Quote Sent', 'Quote Accepted', 'In Production', 'Completed']
 
@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const inquiries    = data?.jobsByStatus['Inquiry'] ?? 0
 
   return (
-    <div className="p-10 max-w-7xl">
+    <div className="p-10 max-w-[1400px]">
       <div className="mb-8">
         <p className="text-[10px] uppercase tracking-widest text-text-subtle mb-1">Overview</p>
         <h2 className="text-4xl font-medium text-text tracking-tight">Dashboard</h2>
@@ -120,8 +120,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Main content — 3 columns */}
-          <div className="grid grid-cols-3 gap-6">
+          {/* Main content — 4 columns */}
+          <div className="grid grid-cols-4 gap-5">
 
             {/* Quotes to Do */}
             <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
@@ -163,6 +163,23 @@ export default function DashboardPage() {
                 <div className="divide-y divide-border overflow-y-auto flex-1">
                   {(data?.activeWorkOrders ?? []).map((wo) => (
                     <WorkOrderRow key={wo.id} wo={wo} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Draft Purchase Orders */}
+            <div className="col-span-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Draft Purchase Orders</p>
+                <Link href="/purchase-orders" className="text-xs text-text-muted hover:text-text transition-colors">{(data?.draftPOs ?? []).length}</Link>
+              </div>
+              {(data?.draftPOs ?? []).length === 0 ? (
+                <p className="px-5 py-10 text-sm text-text-faint text-center italic flex-1">No draft orders</p>
+              ) : (
+                <div className="divide-y divide-border overflow-y-auto flex-1">
+                  {(data?.draftPOs ?? []).map((po) => (
+                    <PODraftRow key={po.id} po={po} />
                   ))}
                 </div>
               )}
@@ -217,6 +234,21 @@ function WorkOrderRow({ wo }: { wo: WorkOrderSummary }) {
           </p>
         )}
       </div>
+    </Link>
+  )
+}
+
+function PODraftRow({ po }: { po: PODraftSummary }) {
+  return (
+    <Link href="/purchase-orders" className="block px-5 py-3 hover:bg-surface-hover transition-colors">
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <span className="text-sm font-semibold font-mono tracking-tight text-text">{po.po_number || 'Draft'}</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-gray-100 text-gray-500 border-gray-200 whitespace-nowrap shrink-0">
+          {po.status}
+        </span>
+      </div>
+      <p className="text-xs text-text-muted truncate">{po.supplier_name || '—'}</p>
+      {po.order_date && <p className="text-[11px] text-text-subtle mt-0.5">{fmtDate(po.order_date)}</p>}
     </Link>
   )
 }

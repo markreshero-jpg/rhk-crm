@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut } from 'lucide-react'
 import { useTheme } from '@/lib/useTheme'
+import { createClient } from '@/lib/supabase-browser'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,8 +19,15 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, toggle } = useTheme()
   const isDark = theme === 'dark'
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <aside className="w-60 bg-accent text-accent-text flex flex-col h-screen">
@@ -92,10 +100,17 @@ export default function Sidebar() {
           <div className="w-8 h-8 rounded-full bg-accent-text-muted flex items-center justify-center text-accent text-sm font-semibold">
             R
           </div>
-          <div className="text-xs">
+          <div className="text-xs flex-1 min-w-0">
             <p className="text-accent-text font-medium">You</p>
             <p className="text-accent-text-muted">Administrator</p>
           </div>
+          <button
+            onClick={handleSignOut}
+            title="Sign out"
+            className="text-accent-text-muted hover:text-accent-text transition-colors p-1 rounded"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
       </div>
     </aside>
