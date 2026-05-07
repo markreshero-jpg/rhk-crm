@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut } from 'lucide-react'
 import { useTheme } from '@/lib/useTheme'
@@ -31,11 +32,17 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
   return (
     <aside className="w-60 bg-accent text-accent-text flex flex-col h-screen">
-      <div className="px-6 py-6 border-b border-accent-border">
-        <h1 className="text-xl font-semibold tracking-tight">RHK</h1>
-        <p className="text-xs text-accent-text-muted mt-0.5">Operations console</p>
+      <div className="px-5 py-5 border-b border-accent-border">
+        <Image
+          src="/resident-hero-logo.png"
+          alt="Resident Hero"
+          width={160}
+          height={48}
+          className="w-full max-w-[160px] h-auto object-contain"
+          priority
+        />
         {process.env.NODE_ENV === 'development' && (
-          <span className="inline-block mt-1.5 text-[10px] font-semibold tracking-widest uppercase text-red-400">
+          <span className="inline-block mt-2 text-[10px] font-semibold tracking-widest uppercase text-red-400">
             Development
           </span>
         )}
