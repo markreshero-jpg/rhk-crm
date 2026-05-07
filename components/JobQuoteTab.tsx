@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink, BookmarkPlus } from 'lucide-react'
+import { Plus, Copy, Trash2, ChevronRight, ChevronDown, ListOrdered, FileText, ExternalLink, BookmarkPlus, ArrowRightCircle } from 'lucide-react'
 import {
   getIssuesByJobId,
   createIssue,
@@ -28,6 +28,12 @@ import {
   saveQuoteItemAsTemplate,
   QuoteItemTemplate,
 } from '@/lib/quoteItemTemplates'
+import {
+  createWorkOrder,
+  generateWorkOrderNumber,
+  getQuoteItemsForImport,
+  importQuoteItemsToWorkOrder,
+} from '@/lib/workOrders'
 import {
   getAllTermsTemplates,
   TermsTemplate,
@@ -305,19 +311,20 @@ function SelectedIssuePanel({
   const [showImportModal, setShowImportModal] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showDupeSaveModal, setShowDupeSaveModal] = useState(false)
+  const [showSendToWOModal, setShowSendToWOModal] = useState(false)
   const [reportsOpen, setReportsOpen] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
   const reportsRef = useRef<HTMLDivElement>(null)
+  const actionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!reportsOpen) return
     function handleClick(e: MouseEvent) {
-      if (reportsRef.current && !reportsRef.current.contains(e.target as Node)) {
-        setReportsOpen(false)
-      }
+      if (reportsRef.current && !reportsRef.current.contains(e.target as Node)) setReportsOpen(false)
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) setActionsOpen(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [reportsOpen])
+  }, [])
 
   return (
     <div>
@@ -326,10 +333,56 @@ function SelectedIssuePanel({
           Quote Items
         </h3>
         <div className="flex gap-2">
+          {/* Actions dropdown */}
+          <div ref={actionsRef} className="relative">
+            <button
+              type="button"
+              onClick={() => { setActionsOpen((o) => !o); setReportsOpen(false) }}
+              className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors"
+            >
+              <ChevronDown size={11} className={`transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
+              <span>Actions</span>
+            </button>
+            {actionsOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-surface border border-border-strong rounded-md shadow-lg z-20 py-1">
+                <button type="button"
+                  onClick={() => { setActionsOpen(false); setShowImportModal(true) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors">
+                  <Plus size={11} /> Add Quote Item
+                </button>
+                <button type="button"
+                  onClick={() => { setActionsOpen(false); setShowDupeSaveModal(true) }}
+                  disabled={quoteItems.length === 0}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <BookmarkPlus size={11} /> Duplicate / Save Item
+                </button>
+                <button type="button"
+                  onClick={() => { setActionsOpen(false); onRenumber() }}
+                  disabled={quoteItems.length === 0}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ListOrdered size={11} /> Renumber Items
+                </button>
+                <button type="button"
+                  onClick={() => { setActionsOpen(false); setShowSendToWOModal(true) }}
+                  disabled={quoteItems.length === 0 || issue.status === 'Accepted' || issue.status === 'Locked'}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ArrowRightCircle size={11} /> Send to Work Order
+                </button>
+                <div className="border-t border-border my-1" />
+                <button type="button"
+                  onClick={() => { setActionsOpen(false); onDeleteIssue() }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-danger hover:bg-danger-bg transition-colors">
+                  <Trash2 size={11} /> Delete Issue
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Reports dropdown */}
           <div ref={reportsRef} className="relative">
             <button
               type="button"
-              onClick={() => setReportsOpen((o) => !o)}
+              onClick={() => { setReportsOpen((o) => !o); setActionsOpen(false) }}
               className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
             >
               <FileText size={12} />
@@ -338,76 +391,38 @@ function SelectedIssuePanel({
             </button>
             {reportsOpen && (
               <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border-strong rounded-md shadow-lg z-20 py-1">
-                <a
-                  href={`/print/quote/${issue.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <a href={`/print/quote/${issue.id}`} target="_blank" rel="noopener noreferrer"
                   onClick={() => setReportsOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors"
-                >
-                  <ExternalLink size={11} />
-                  Written Quote
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors">
+                  <ExternalLink size={11} /> Written Quote
                 </a>
-                <a
-                  href={`/print/item-summary/${issue.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <a href={`/print/item-summary/${issue.id}`} target="_blank" rel="noopener noreferrer"
                   onClick={() => setReportsOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors"
-                >
-                  <ExternalLink size={11} />
-                  Item Summary
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors">
+                  <ExternalLink size={11} /> Item Summary
                 </a>
-                <a
-                  href={`/print/labour-summary/${issue.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <a href={`/print/labour-summary/${issue.id}`} target="_blank" rel="noopener noreferrer"
                   onClick={() => setReportsOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors"
-                >
-                  <ExternalLink size={11} />
-                  Labour Summary
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-muted hover:bg-surface-hover transition-colors">
+                  <ExternalLink size={11} /> Labour Summary
                 </a>
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowDupeSaveModal(true)}
-            disabled={quoteItems.length === 0}
-            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50 transition-colors"
-          >
-            <BookmarkPlus size={12} />
-            <span>Duplicate / Save Item</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors"
-          >
-            <Plus size={12} />
-            <span>Add Quote Item</span>
-          </button>
-          <button
-            type="button"
-            onClick={onRenumber}
-            disabled={quoteItems.length === 0}
-            className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-50 transition-colors"
-            title="Resequence sort values to clean 1, 2, 3..."
-          >
-            <ListOrdered size={12} />
-            <span>Renumber</span>
-          </button>
-          <button
-            type="button"
-            onClick={onDeleteIssue}
-            className="flex items-center gap-1.5 text-xs text-danger bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-danger-bg transition-colors"
-          >
-            <Trash2 size={12} />
-            <span>Delete Issue</span>
-          </button>
         </div>
       </div>
+
+      {showSendToWOModal && (
+        <SendToWorkOrderModal
+          issue={issue}
+          quoteItems={quoteItems}
+          onClose={() => setShowSendToWOModal(false)}
+          onSent={async () => {
+            setShowSendToWOModal(false)
+            await onRefreshItems()
+          }}
+        />
+      )}
 
       {showDupeSaveModal && (
         <DuplicateSaveModal
@@ -762,6 +777,86 @@ function TermsImportModal({
               {applying ? 'Applying...' : `Apply ${selectedCount > 0 ? selectedCount : ''} clause${selectedCount !== 1 ? 's' : ''}`}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ----- Send to Work Order Modal -----
+
+function SendToWorkOrderModal({ issue, quoteItems, onClose, onSent }: {
+  issue: Issue
+  quoteItems: QuoteItemWithTotal[]
+  onClose: () => void
+  onSent: () => Promise<void>
+}) {
+  const router = useRouter()
+  const [woTitle, setWoTitle] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleConfirm() {
+    setSending(true)
+    setError(null)
+    try {
+      const woNumber = await generateWorkOrderNumber(issue.job_id)
+      const wo = await createWorkOrder({
+        job_id: issue.job_id,
+        status: 'Draft',
+        work_order_number: woNumber,
+        title: woTitle.trim() || null,
+      })
+      const allItems = await getQuoteItemsForImport(issue.id)
+      const allIds = allItems.map((i) => i.id)
+      if (allIds.length > 0) {
+        await importQuoteItemsToWorkOrder(wo.id, issue.id, allIds)
+      }
+      await updateIssue(issue.id, { status: 'Accepted', accepted_at: new Date().toISOString() })
+      await onSent()
+      router.push(`/jobs/${issue.job_id}?tab=work-orders`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-border">
+          <ArrowRightCircle size={16} className="text-text-muted" />
+          <h2 className="text-base font-semibold text-text">Send to Work Order</h2>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1.5">Work Order Name</label>
+            <input
+              type="text"
+              value={woTitle}
+              onChange={(e) => setWoTitle(e.target.value)}
+              autoFocus
+              placeholder="e.g. Installation — 32 Gateway Drive"
+              className="w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-border"
+            />
+          </div>
+          <p className="text-sm text-text-muted">
+            All <span className="font-medium text-text">{quoteItems.length} quote item{quoteItems.length !== 1 ? 's' : ''}</span> from Issue {issue.issue_number} will be imported into the new work order. The issue will be marked <span className="font-medium text-success">Accepted</span>.
+          </p>
+          {error && (
+            <p className="text-xs text-danger bg-danger-bg border border-danger-border px-3 py-2 rounded-md">{error}</p>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-border">
+          <button type="button" onClick={handleConfirm} disabled={sending}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50 transition-colors">
+            <ArrowRightCircle size={14} />
+            {sending ? 'Creating…' : 'Send to Work Order'}
+          </button>
+          <button type="button" onClick={onClose} disabled={sending}
+            className="px-4 py-2.5 text-sm text-text-muted border border-border rounded-md hover:bg-surface-hover transition-colors">
+            Cancel
+          </button>
         </div>
       </div>
     </div>
