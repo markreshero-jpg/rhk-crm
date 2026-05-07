@@ -178,6 +178,25 @@ function StaffDetail({ staff, onUpdate, onDelete, onRefresh }: {
     }
   }
 
+  async function handleResendInvite() {
+    if (!staff.email) { setInviteMsg('No email address on file.'); return }
+    setInviting(true); setInviteMsg(null)
+    try {
+      const res = await fetch('/api/staff/resend-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: staff.email }),
+      })
+      const d = await res.json()
+      if (!res.ok) { setInviteMsg(d.error || 'Failed to resend invite'); return }
+      setInviteMsg('Invite resent! They will receive an email to set their password.')
+    } catch {
+      setInviteMsg('Network error — please try again.')
+    } finally {
+      setInviting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -214,7 +233,12 @@ function StaffDetail({ staff, onUpdate, onDelete, onRefresh }: {
             </p>
           </div>
         </div>
-        {!staff.user_id && (
+        {staff.user_id ? (
+          <button onClick={handleResendInvite} disabled={inviting}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-surface text-text-muted border border-border rounded-md hover:bg-surface-hover disabled:opacity-50 transition-colors shrink-0">
+            <Mail size={12} /> {inviting ? 'Sending…' : 'Resend Invite'}
+          </button>
+        ) : (
           <button onClick={handleInvite} disabled={inviting}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50 transition-colors shrink-0">
             <Mail size={12} /> {inviting ? 'Sending…' : 'Send Invite'}

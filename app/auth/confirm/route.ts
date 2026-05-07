@@ -32,8 +32,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!error) {
-      // For invites, send them to set-password page; otherwise go to dashboard
-      if (type === 'invite') {
+      if (type === 'invite' || type === 'recovery') {
         return NextResponse.redirect(`${origin}/auth/set-password`)
       }
       return NextResponse.redirect(`${origin}/dashboard`)
