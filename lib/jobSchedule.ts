@@ -33,6 +33,17 @@ export type JobScheduleEventWithRelations = JobScheduleEvent & {
   work_order: { work_order_number: string | null; title: string | null } | null
 }
 
+export async function getScheduleEventsByWorkOrderId(workOrderId: string): Promise<JobScheduleEventWithRelations[]> {
+  const { data, error } = await supabase
+    .from('job_schedule_events')
+    .select('*, staff:staff(display_name, colour), work_order:work_orders(work_order_number, title)')
+    .eq('work_order_id', workOrderId)
+    .order('scheduled_date', { ascending: true, nullsFirst: true })
+    .order('sort', { ascending: true })
+  if (error) throw error
+  return (data || []) as JobScheduleEventWithRelations[]
+}
+
 export async function getScheduleEventsByJobId(jobId: string): Promise<JobScheduleEventWithRelations[]> {
   const { data, error } = await supabase
     .from('job_schedule_events')
