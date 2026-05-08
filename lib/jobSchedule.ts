@@ -23,6 +23,7 @@ export type JobScheduleEvent = {
   estimated_hours: number | null
   actual_hours: number | null
   notes: string | null
+  not_needed: boolean
   sort: number
   created_at: string
   updated_at: string
@@ -38,7 +39,6 @@ export async function getScheduleEventsByWorkOrderId(workOrderId: string): Promi
     .from('job_schedule_events')
     .select('*, staff:staff(display_name, colour), work_order:work_orders(work_order_number, title)')
     .eq('work_order_id', workOrderId)
-    .order('scheduled_date', { ascending: true, nullsFirst: true })
     .order('sort', { ascending: true })
   if (error) throw error
   return (data || []) as JobScheduleEventWithRelations[]

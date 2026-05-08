@@ -309,7 +309,7 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
                     <div className="flex-1 min-w-0">
                       {row.event ? (
                         <EventEditRow
-                          key={`${row.event.id}:${row.event.status}:${row.event.scheduled_date ?? ''}:${row.event.staff_id ?? ''}:${row.event.notes ?? ''}`}
+                          key={`${row.event.id}:${row.event.status}:${row.event.scheduled_date ?? ''}:${row.event.staff_id ?? ''}:${row.event.notes ?? ''}:${row.event.not_needed}`}
                           event={row.event}
                           staff={staff}
                           onUpdate={(patch) => handleEventUpdate(row.event!.id, patch)}
@@ -341,53 +341,73 @@ function EventEditRow({ event, staff, onUpdate }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      {/* Status */}
-      <select
-        value={event.status}
-        onChange={(e) => onUpdate({ status: e.target.value as ScheduleEventStatus })}
-        className={`text-[11px] rounded px-1.5 py-1 border font-medium focus:outline-none focus:border-accent shrink-0 ${scheduleStatusStyles[event.status] || ''}`}
-      >
-        {SCHEDULE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
 
-      {/* Trade type badge */}
-      {event.trade_type && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted border border-border whitespace-nowrap shrink-0">
-          {event.trade_type}
+      {/* Not needed toggle — always visible so it can be unchecked */}
+      <input
+        type="checkbox"
+        checked={event.not_needed}
+        onChange={(e) => onUpdate({ not_needed: e.target.checked })}
+        title={event.not_needed ? 'Mark as needed' : 'Mark as not needed'}
+        className="shrink-0 cursor-pointer accent-accent"
+      />
+
+      {event.not_needed ? (
+        /* Greyed-out placeholder when not needed */
+        <span className="text-xs text-text-faint italic line-through select-none">
+          {[event.trade_type, event.title].filter(Boolean).join(' — ') || 'Not needed'}
+          {' '}— not needed
         </span>
+      ) : (
+        <>
+          {/* Status */}
+          <select
+            value={event.status}
+            onChange={(e) => onUpdate({ status: e.target.value as ScheduleEventStatus })}
+            className={`text-[11px] rounded px-1.5 py-1 border font-medium focus:outline-none focus:border-accent shrink-0 ${scheduleStatusStyles[event.status] || ''}`}
+          >
+            {SCHEDULE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          {/* Trade type badge */}
+          {event.trade_type && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted border border-border whitespace-nowrap shrink-0">
+              {event.trade_type}
+            </span>
+          )}
+
+          {/* Date */}
+          <input
+            type="date"
+            defaultValue={event.scheduled_date || ''}
+            onBlur={(e) => {
+              const date = e.target.value || null
+              const patch: Partial<JobScheduleEvent> = { scheduled_date: date }
+              if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
+              onUpdate(patch)
+            }}
+            className={cellCls + ' w-32 shrink-0'}
+          />
+
+          {/* Staff */}
+          <select
+            defaultValue={event.staff_id || ''}
+            onChange={(e) => onUpdate({ staff_id: e.target.value || null })}
+            className={cellCls + ' shrink-0'}
+          >
+            <option value="">— Staff —</option>
+            {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
+          </select>
+
+          {/* Notes */}
+          <input
+            type="text"
+            defaultValue={event.notes || ''}
+            onBlur={(e) => onUpdate({ notes: e.target.value || null })}
+            placeholder="Notes…"
+            className={cellCls + ' flex-1 min-w-0'}
+          />
+        </>
       )}
-
-      {/* Date */}
-      <input
-        type="date"
-        defaultValue={event.scheduled_date || ''}
-        onBlur={(e) => {
-          const date = e.target.value || null
-          const patch: Partial<JobScheduleEvent> = { scheduled_date: date }
-          if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
-          onUpdate(patch)
-        }}
-        className={cellCls + ' w-32 shrink-0'}
-      />
-
-      {/* Staff */}
-      <select
-        defaultValue={event.staff_id || ''}
-        onChange={(e) => onUpdate({ staff_id: e.target.value || null })}
-        className={cellCls + ' shrink-0'}
-      >
-        <option value="">— Staff —</option>
-        {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
-      </select>
-
-      {/* Notes */}
-      <input
-        type="text"
-        defaultValue={event.notes || ''}
-        onBlur={(e) => onUpdate({ notes: e.target.value || null })}
-        placeholder="Notes…"
-        className={cellCls + ' flex-1 min-w-0'}
-      />
     </div>
   )
 }
