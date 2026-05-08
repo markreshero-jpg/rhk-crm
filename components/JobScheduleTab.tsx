@@ -152,8 +152,6 @@ function EventTable({
             <Th>Task</Th>
             <Th>Trade</Th>
             <Th>Date</Th>
-            <Th>Start</Th>
-            <Th>End</Th>
             <Th>Staff</Th>
             <Th right>Est. Hrs</Th>
             <Th right>Actual Hrs</Th>
@@ -234,26 +232,6 @@ function EventRow({
             if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
             onUpdate(patch)
           }}
-          className={cellCls}
-        />
-      </td>
-
-      {/* Start time */}
-      <td className="px-1 py-1 w-24">
-        <input
-          type="time"
-          defaultValue={event.start_time || ''}
-          onBlur={blurText('start_time')}
-          className={cellCls}
-        />
-      </td>
-
-      {/* End time */}
-      <td className="px-1 py-1 w-24">
-        <input
-          type="time"
-          defaultValue={event.end_time || ''}
-          onBlur={blurText('end_time')}
           className={cellCls}
         />
       </td>

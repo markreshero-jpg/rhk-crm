@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, ChevronRight } from 'lucide-react'
 import { searchClients, Client } from '@/lib/clients'
 import ListFilters, { FilterDef } from '@/components/ListFilters'
+import ResizableTable, { ColDef } from '@/components/ResizableTable'
 
 const filters: FilterDef[] = [
   {
@@ -27,6 +28,16 @@ const filters: FilterDef[] = [
       { value: 'Unknown', label: 'Unknown' },
     ],
   },
+]
+
+const CLIENTS_COLUMNS: ColDef[] = [
+  { key: 'name',   label: 'Name',   defaultWidth: 220, minWidth: 80 },
+  { key: 'phone',  label: 'Phone',  defaultWidth: 140, minWidth: 80 },
+  { key: 'email',  label: 'Email',  defaultWidth: 220, minWidth: 80 },
+  { key: 'suburb', label: 'Suburb', defaultWidth: 140, minWidth: 60 },
+  { key: 'type',   label: 'Type',   defaultWidth: 140, minWidth: 60 },
+  { key: 'source', label: 'Source', defaultWidth: 120, minWidth: 60 },
+  { key: 'arrow',  defaultWidth: 32, minWidth: 32, noResize: true },
 ]
 
 export default function ClientsPage() {
@@ -105,53 +116,27 @@ export default function ClientsPage() {
             </p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
-                <th className="px-3 py-1.5 font-medium">Name</th>
-                <th className="px-3 py-1.5 font-medium">Phone</th>
-                <th className="px-3 py-1.5 font-medium">Email</th>
-                <th className="px-3 py-1.5 font-medium">Suburb</th>
-                <th className="px-3 py-1.5 font-medium">Type</th>
-                <th className="px-3 py-1.5 font-medium">Source</th>
-                <th className="px-3 py-1.5 font-medium w-8"></th>
-              </tr>
-            </thead>
+          <ResizableTable storageKey="clients-list" columns={CLIENTS_COLUMNS}>
             <tbody className="divide-y divide-border">
               {filteredClients.map((client) => (
-                <tr
-                  key={client.id}
-                  className="hover:bg-surface-hover transition-colors group"
-                >
-                  <td className="px-3 py-1.5 text-sm font-medium text-text">
-                    <Link href={`/clients/${client.id}`} className="block">
-                      {client.name}
-                    </Link>
+                <tr key={client.id} className="hover:bg-surface-hover transition-colors group">
+                  <td className="px-3 py-1.5 text-sm font-medium text-text truncate">
+                    <Link href={`/clients/${client.id}`} className="block">{client.name}</Link>
                   </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted whitespace-nowrap">
+                  <td className="px-3 py-1.5 text-sm text-text-muted whitespace-nowrap truncate">
                     {client.phone || client.mobile || '—'}
                   </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted">
-                    {client.email || '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted">
-                    {client.suburb || '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted whitespace-nowrap">
-                    {client.client_type || '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted whitespace-nowrap">
-                    {client.client_source || '—'}
-                  </td>
+                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">{client.email || '—'}</td>
+                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">{client.suburb || '—'}</td>
+                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">{client.client_type || '—'}</td>
+                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">{client.client_source || '—'}</td>
                   <td className="px-3 py-1.5 text-text-faint group-hover:text-text">
-                    <Link href={`/clients/${client.id}`}>
-                      <ChevronRight size={16} />
-                    </Link>
+                    <Link href={`/clients/${client.id}`}><ChevronRight size={16} /></Link>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResizableTable>
         )}
       </div>
     </div>

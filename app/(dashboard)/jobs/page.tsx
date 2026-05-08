@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, ChevronRight } from 'lucide-react'
 import { searchJobs, JobWithClient } from '@/lib/jobs'
 import ListFilters, { FilterDef } from '@/components/ListFilters'
+import ResizableTable, { ColDef } from '@/components/ResizableTable'
 
 const statusStyles: Record<string, string> = {
   'Inquiry': 'bg-info-bg text-info border-info-border',
@@ -32,6 +33,15 @@ const filters: FilterDef[] = [
     label: 'Status',
     options: STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
   },
+]
+
+const JOBS_COLUMNS: ColDef[] = [
+  { key: 'job',     label: 'Job #',   defaultWidth: 96,  minWidth: 60 },
+  { key: 'client',  label: 'Client',  defaultWidth: 220, minWidth: 80 },
+  { key: 'title',   label: 'Title',   defaultWidth: 220, minWidth: 80 },
+  { key: 'address', label: 'Address', defaultWidth: 260, minWidth: 80 },
+  { key: 'status',  label: 'Status',  defaultWidth: 150, minWidth: 80 },
+  { key: 'arrow',   defaultWidth: 32, minWidth: 32, noResize: true },
 ]
 
 export default function JobsPage() {
@@ -119,44 +129,21 @@ export default function JobsPage() {
             )}
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
-                <th className="px-3 py-1.5 font-medium w-24">Job #</th>
-                <th className="px-3 py-1.5 font-medium w-48">Client</th>
-                <th className="px-3 py-1.5 font-medium">Title</th>
-                <th className="px-3 py-1.5 font-medium">Address</th>
-                <th className="px-3 py-1.5 font-medium w-32">Status</th>
-                <th className="px-3 py-1.5 font-medium w-8"></th>
-              </tr>
-            </thead>
+          <ResizableTable storageKey="jobs-list" columns={JOBS_COLUMNS}>
             <tbody className="divide-y divide-border">
               {filteredJobs.map((job) => (
-                <tr
-                  key={job.id}
-                  className="hover:bg-surface-hover transition-colors group"
-                >
+                <tr key={job.id} className="hover:bg-surface-hover transition-colors group">
                   <td className="px-3 py-1.5 text-sm font-mono text-text-muted whitespace-nowrap">
-                    <Link href={`/jobs/${job.id}`} className="block">
-                      {job.job_number}
-                    </Link>
+                    <Link href={`/jobs/${job.id}`} className="block">{job.job_number}</Link>
                   </td>
                   <td className="px-3 py-1.5 text-sm font-medium text-text truncate">
                     {job.client?.name || '—'}
                   </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">
-                    {job.title || '—'}
-                  </td>
-                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">
-                    {formatAddress(job)}
-                  </td>
+                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">{job.title || '—'}</td>
+                  <td className="px-3 py-1.5 text-sm text-text-muted truncate">{formatAddress(job)}</td>
                   <td className="px-3 py-1.5">
                     {job.status ? (
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${
-                          statusStyles[job.status] || 'bg-surface-muted text-text-muted border-border'
-                        }`}
-                      >
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusStyles[job.status] || 'bg-surface-muted text-text-muted border-border'}`}>
                         {job.status}
                       </span>
                     ) : (
@@ -164,14 +151,12 @@ export default function JobsPage() {
                     )}
                   </td>
                   <td className="px-3 py-1.5 text-text-faint group-hover:text-text">
-                    <Link href={`/jobs/${job.id}`}>
-                      <ChevronRight size={16} />
-                    </Link>
+                    <Link href={`/jobs/${job.id}`}><ChevronRight size={16} /></Link>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ResizableTable>
         )}
       </div>
     </div>
