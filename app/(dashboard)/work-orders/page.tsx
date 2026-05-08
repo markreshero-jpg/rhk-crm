@@ -2,13 +2,18 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Calendar } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import {
   WorkOrderWithJob, WorkOrderLine, LineGroup,
   WORK_ORDER_STATUSES,
   searchWorkOrders, getWorkOrderLinesByWorkOrderId, groupWorkOrderLines,
 } from '@/lib/workOrders'
-import { JobScheduleEventWithRelations, getScheduleEventsByWorkOrderId } from '@/lib/jobSchedule'
+import {
+  JobScheduleEvent, JobScheduleEventWithRelations,
+  ScheduleEventStatus, SCHEDULE_STATUSES,
+  getScheduleEventsByWorkOrderId, updateScheduleEvent,
+} from '@/lib/jobSchedule'
+import { Staff, getActiveStaff } from '@/lib/staff'
 import { stageBadgeStyles } from '@/lib/stageStyles'
 import ListFilters, { FilterDef } from '@/components/ListFilters'
 import ResizableTable, { ColDef } from '@/components/ResizableTable'
@@ -68,6 +73,11 @@ export default function WorkOrdersListPage() {
   const [linesCache, setLinesCache] = useState<Map<string, WorkOrderLine[]>>(new Map())
   const [eventsCache, setEventsCache] = useState<Map<string, JobScheduleEventWithRelations[]>>(new Map())
   const [loadingExpand, setLoadingExpand] = useState<Set<string>>(new Set())
+  const [staff, setStaff] = useState<Staff[]>([])
+
+  useEffect(() => {
+    getActiveStaff().then(setStaff)
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -90,6 +100,11 @@ export default function WorkOrdersListPage() {
       eventsCache.has(id) ? Promise.resolve(eventsCache.get(id)!) : getScheduleEventsByWorkOrderId(id),
     ])
     setLinesCache((prev) => new Map(prev).set(id, lines))
+    setEventsCache((prev) => new Map(prev).set(id, events))
+  }
+
+  async function refreshEventsForWO(id: string) {
+    const events = await getScheduleEventsByWorkOrderId(id)
     setEventsCache((prev) => new Map(prev).set(id, events))
   }
 
@@ -164,7 +179,9 @@ export default function WorkOrdersListPage() {
                   lines={linesCache.get(wo.id) ?? null}
                   events={eventsCache.get(wo.id) ?? null}
                   loadingExpand={loadingExpand.has(wo.id)}
+                  staff={staff}
                   onToggle={() => toggleExpand(wo.id)}
+                  onEventsRefresh={() => refreshEventsForWO(wo.id)}
                 />
               ))}
             </tbody>
@@ -177,18 +194,63 @@ export default function WorkOrdersListPage() {
 
 // ── Work Order Row ─────────────────────────────────────────────────────────────
 
-function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, onToggle }: {
+type ExpandRow = {
+  key: string
+  showItem: boolean
+  group: LineGroup | null
+  event: JobScheduleEventWithRelations | null
+}
+
+function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onToggle, onEventsRefresh }: {
   wo: WorkOrderWithJob
   expanded: boolean
   lines: WorkOrderLine[] | null
   events: JobScheduleEventWithRelations[] | null
   loadingExpand: boolean
+  staff: Staff[]
   onToggle: () => void
+  onEventsRefresh: () => Promise<void>
 }) {
   const groups = lines ? groupWorkOrderLines(lines) : []
   const scheduled = wo.scheduled_start
     ? fmtDate(wo.scheduled_start) + (wo.scheduled_end ? ` – ${fmtDate(wo.scheduled_end)}` : '')
     : '—'
+
+  // Match events to groups by title (events are imported with title = item name)
+  const eventsByGroup = new Map<string, JobScheduleEventWithRelations[]>()
+  const unmatchedEvents: JobScheduleEventWithRelations[] = []
+  if (events) {
+    for (const evt of events) {
+      const matched = groups.find((g) => g.name === evt.title)
+      if (matched) {
+        if (!eventsByGroup.has(matched.name)) eventsByGroup.set(matched.name, [])
+        eventsByGroup.get(matched.name)!.push(evt)
+      } else {
+        unmatchedEvents.push(evt)
+      }
+    }
+  }
+
+  // Flatten into a single list of rows: item info only shows on first event row for each group
+  const rows: ExpandRow[] = []
+  for (const group of groups) {
+    const groupEvents = eventsByGroup.get(group.name) ?? []
+    if (groupEvents.length === 0) {
+      rows.push({ key: `${group.name}-empty`, showItem: true, group, event: null })
+    } else {
+      groupEvents.forEach((evt, i) => {
+        rows.push({ key: evt.id, showItem: i === 0, group, event: evt })
+      })
+    }
+  }
+  for (const evt of unmatchedEvents) {
+    rows.push({ key: evt.id, showItem: false, group: null, event: evt })
+  }
+
+  async function handleEventUpdate(evtId: string, patch: Partial<JobScheduleEvent>) {
+    await updateScheduleEvent(evtId, patch)
+    await onEventsRefresh()
+  }
 
   return (
     <>
@@ -220,67 +282,112 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, onToggle }: 
 
       {expanded && (
         <tr className="border-b border-border bg-surface-muted/30">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={7} className="px-6 py-2">
             {loadingExpand ? (
-              <p className="text-xs text-text-subtle py-1">Loading…</p>
+              <p className="text-xs text-text-subtle py-2">Loading…</p>
+            ) : rows.length === 0 ? (
+              <p className="text-xs text-text-faint italic py-2">No items or events.</p>
             ) : (
-              <div className="flex gap-8">
+              <div className="divide-y divide-border">
+                {rows.map((row) => (
+                  <div key={row.key} className="flex items-center gap-6 py-2">
 
-                {/* Items */}
-                <div className="min-w-[180px]">
-                  <p className="text-[10px] uppercase tracking-widest text-text-faint font-medium mb-2">Items</p>
-                  {groups.length === 0 ? (
-                    <p className="text-xs text-text-faint italic">No items</p>
-                  ) : (
-                    <div className="flex flex-col gap-1">
-                      {groups.map((group) => (
-                        <div key={group.name} className="flex items-center gap-2 text-xs">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium leading-tight ${stageBadgeStyles[group.lines[0]?.stage || ''] || 'bg-surface-muted text-text-muted'}`}>
-                            {group.lines[0]?.stage || 'Admin'}
+                    {/* Item column — fixed width, only visible on first event for each group */}
+                    <div className="w-56 shrink-0">
+                      {row.showItem && row.group && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium leading-tight whitespace-nowrap shrink-0 ${stageBadgeStyles[row.group.lines[0]?.stage || ''] || 'bg-surface-muted text-text-muted'}`}>
+                            {row.group.lines[0]?.stage || 'Admin'}
                           </span>
-                          <span className="text-text font-medium">{group.name}</span>
-                          <span className="text-text-faint">{group.lines.length} line{group.lines.length !== 1 ? 's' : ''}</span>
+                          <span className="text-text font-medium truncate">{row.group.name}</span>
+                          <span className="text-text-faint whitespace-nowrap shrink-0">{row.group.lines.length}L</span>
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Schedule Events */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-text-faint font-medium mb-2">Schedule Events</p>
-                  {!events || events.length === 0 ? (
-                    <p className="text-xs text-text-faint italic">No events scheduled</p>
-                  ) : (
-                    <div className="flex flex-col gap-1.5">
-                      {events.map((evt) => (
-                        <div key={evt.id} className="flex items-center gap-3 text-xs">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium whitespace-nowrap ${scheduleStatusStyles[evt.status] || ''}`}>
-                            {evt.status}
-                          </span>
-                          {evt.trade_type && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted border border-border whitespace-nowrap">{evt.trade_type}</span>
-                          )}
-                          <span className="text-text font-medium truncate">{evt.title || 'Untitled'}</span>
-                          {evt.scheduled_date && (
-                            <span className="text-text-subtle whitespace-nowrap flex items-center gap-1">
-                              <Calendar size={10} />{fmtDate(evt.scheduled_date)}
-                            </span>
-                          )}
-                          {evt.staff?.display_name && (
-                            <span className="text-text-muted whitespace-nowrap">· {evt.staff.display_name}</span>
-                          )}
-                        </div>
-                      ))}
+                    {/* Event column — editable */}
+                    <div className="flex-1 min-w-0">
+                      {row.event ? (
+                        <EventEditRow
+                          key={`${row.event.id}:${row.event.status}:${row.event.scheduled_date ?? ''}:${row.event.staff_id ?? ''}:${row.event.notes ?? ''}`}
+                          event={row.event}
+                          staff={staff}
+                          onUpdate={(patch) => handleEventUpdate(row.event!.id, patch)}
+                        />
+                      ) : (
+                        <p className="text-xs text-text-faint italic">No events</p>
+                      )}
                     </div>
-                  )}
-                </div>
 
+                  </div>
+                ))}
               </div>
             )}
           </td>
         </tr>
       )}
     </>
+  )
+}
+
+// ── Event Edit Row ─────────────────────────────────────────────────────────────
+
+const cellCls = 'text-xs bg-transparent border border-transparent rounded px-1.5 py-1 focus:bg-surface focus:border-accent focus:outline-none'
+
+function EventEditRow({ event, staff, onUpdate }: {
+  event: JobScheduleEventWithRelations
+  staff: Staff[]
+  onUpdate: (patch: Partial<JobScheduleEvent>) => Promise<void>
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {/* Status */}
+      <select
+        value={event.status}
+        onChange={(e) => onUpdate({ status: e.target.value as ScheduleEventStatus })}
+        className={`text-[11px] rounded px-1.5 py-1 border font-medium focus:outline-none focus:border-accent shrink-0 ${scheduleStatusStyles[event.status] || ''}`}
+      >
+        {SCHEDULE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+      </select>
+
+      {/* Trade type badge */}
+      {event.trade_type && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted border border-border whitespace-nowrap shrink-0">
+          {event.trade_type}
+        </span>
+      )}
+
+      {/* Date */}
+      <input
+        type="date"
+        defaultValue={event.scheduled_date || ''}
+        onBlur={(e) => {
+          const date = e.target.value || null
+          const patch: Partial<JobScheduleEvent> = { scheduled_date: date }
+          if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
+          onUpdate(patch)
+        }}
+        className={cellCls + ' w-32 shrink-0'}
+      />
+
+      {/* Staff */}
+      <select
+        defaultValue={event.staff_id || ''}
+        onChange={(e) => onUpdate({ staff_id: e.target.value || null })}
+        className={cellCls + ' shrink-0'}
+      >
+        <option value="">— Staff —</option>
+        {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
+      </select>
+
+      {/* Notes */}
+      <input
+        type="text"
+        defaultValue={event.notes || ''}
+        onBlur={(e) => onUpdate({ notes: e.target.value || null })}
+        placeholder="Notes…"
+        className={cellCls + ' flex-1 min-w-0'}
+      />
+    </div>
   )
 }
