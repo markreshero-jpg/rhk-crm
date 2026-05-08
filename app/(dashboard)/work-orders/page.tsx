@@ -16,6 +16,7 @@ import {
 import { getAllSuppliers } from '@/lib/suppliers'
 import { stageBadgeStyles } from '@/lib/stageStyles'
 import ListFilters, { FilterDef } from '@/components/ListFilters'
+import ResizableTable, { ColDef } from '@/components/ResizableTable'
 import { formatCurrency } from '@/lib/format'
 
 const statusStyles: Record<string, string> = {
@@ -34,6 +35,25 @@ function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// ── Column definitions ────────────────────────────────────────────────────────
+
+const WO_COLUMNS = (onExpandAll: () => void, allExpanded: boolean): ColDef[] => [
+  {
+    key: 'expand', defaultWidth: 36, minWidth: 36, noResize: true,
+    label: (
+      <button type="button" onClick={onExpandAll} className="text-text-faint hover:text-text transition-colors" title={allExpanded ? 'Collapse all' : 'Expand all'}>
+        <ChevronRight size={15} className={`transition-transform duration-150 ${allExpanded ? 'rotate-90' : ''}`} />
+      </button>
+    ),
+  },
+  { key: 'wo',        label: 'WO #',      defaultWidth: 112, minWidth: 60 },
+  { key: 'job',       label: 'Job',       defaultWidth: 120, minWidth: 60 },
+  { key: 'client',    label: 'Client',    defaultWidth: 240, minWidth: 80 },
+  { key: 'title',     label: 'Title',     defaultWidth: 192, minWidth: 80 },
+  { key: 'scheduled', label: 'Scheduled', defaultWidth: 160, minWidth: 80 },
+  { key: 'status',    label: 'Status',    defaultWidth: 120, minWidth: 60 },
+]
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -171,24 +191,7 @@ export default function WorkOrdersListPage() {
             {!query && !filterValues.status && <p className="text-text-faint text-xs mt-2">Create work orders from within a job.</p>}
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-surface-muted border-b border-border">
-              <tr className="text-left text-[11px] uppercase tracking-wider text-text-subtle">
-                <th className="px-3 py-2 font-medium w-8">
-                  <button type="button" onClick={toggleExpandAll}
-                    className="text-text-faint hover:text-text transition-colors"
-                    title={allExpanded ? 'Collapse all' : 'Expand all'}>
-                    <ChevronRight size={15} className={`transition-transform duration-150 ${allExpanded ? 'rotate-90' : ''}`} />
-                  </button>
-                </th>
-                <th className="px-3 py-2 font-medium w-28">WO #</th>
-                <th className="px-3 py-2 font-medium w-32">Job</th>
-                <th className="px-3 py-2 font-medium w-40">Client</th>
-                <th className="px-3 py-2 font-medium">Title</th>
-                <th className="px-3 py-2 font-medium w-36">Scheduled</th>
-                <th className="px-3 py-2 font-medium w-32">Status</th>
-              </tr>
-            </thead>
+          <ResizableTable storageKey="work-orders-list" columns={WO_COLUMNS(toggleExpandAll, allExpanded)}>
             <tbody>
               {filtered.map((wo) => (
                 <WorkOrderRow
@@ -201,7 +204,7 @@ export default function WorkOrdersListPage() {
                 />
               ))}
             </tbody>
-          </table>
+          </ResizableTable>
         )}
       </div>
 
@@ -242,7 +245,7 @@ function WorkOrderRow({ wo, expanded, lines, loadingLines, onToggle }: {
             ? <Link href={`/jobs/${wo.job_id}?tab=work-orders`} className="text-sm font-mono text-text-muted hover:text-accent transition-colors">{wo.job_number}</Link>
             : <span className="text-text-faint text-sm">—</span>}
         </td>
-        <td className="px-3 py-2 text-sm text-text font-medium truncate max-w-[160px]">{wo.client_name || '—'}</td>
+        <td className="px-3 py-2 text-sm text-text font-medium truncate">{wo.client_name || '—'}</td>
         <td className="px-3 py-2 text-sm text-text-muted truncate">{wo.title || <span className="italic text-text-faint">Untitled</span>}</td>
         <td className="px-3 py-2 text-xs text-text-muted whitespace-nowrap">{scheduled}</td>
         <td className="px-3 py-2">
