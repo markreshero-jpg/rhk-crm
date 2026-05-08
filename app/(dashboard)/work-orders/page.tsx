@@ -247,6 +247,17 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
     rows.push({ key: evt.id, showItem: false, group: null, event: evt })
   }
 
+  // Mark an event's date red if it falls before the previous event's date (skipping not-needed / undated events)
+  const dateErrors = new Set<string>()
+  let prevDated: JobScheduleEventWithRelations | null = null
+  for (const row of rows) {
+    if (!row.event || row.event.not_needed || !row.event.scheduled_date) continue
+    if (prevDated && row.event.scheduled_date < prevDated.scheduled_date!) {
+      dateErrors.add(row.event.id)
+    }
+    prevDated = row.event
+  }
+
   async function handleEventUpdate(evtId: string, patch: Partial<JobScheduleEvent>) {
     await updateScheduleEvent(evtId, patch)
     await onEventsRefresh()
@@ -312,6 +323,7 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
                           key={`${row.event.id}:${row.event.status}:${row.event.scheduled_date ?? ''}:${row.event.staff_id ?? ''}:${row.event.notes ?? ''}:${row.event.not_needed}`}
                           event={row.event}
                           staff={staff}
+                          hasDateError={dateErrors.has(row.event.id)}
                           onUpdate={(patch) => handleEventUpdate(row.event!.id, patch)}
                         />
                       ) : (
@@ -334,9 +346,10 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
 
 const cellCls = 'text-xs bg-transparent border border-transparent rounded px-1.5 py-1 focus:bg-surface focus:border-accent focus:outline-none'
 
-function EventEditRow({ event, staff, onUpdate }: {
+function EventEditRow({ event, staff, hasDateError, onUpdate }: {
   event: JobScheduleEventWithRelations
   staff: Staff[]
+  hasDateError: boolean
   onUpdate: (patch: Partial<JobScheduleEvent>) => Promise<void>
 }) {
   return (
@@ -375,7 +388,7 @@ function EventEditRow({ event, staff, onUpdate }: {
             </span>
           )}
 
-          {/* Date */}
+          {/* Date — red border if out of sequence with the previous event */}
           <input
             type="date"
             defaultValue={event.scheduled_date || ''}
@@ -385,7 +398,8 @@ function EventEditRow({ event, staff, onUpdate }: {
               if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
               onUpdate(patch)
             }}
-            className={cellCls + ' w-32 shrink-0'}
+            className={cellCls + ' w-32 shrink-0' + (hasDateError ? ' border-danger-border bg-danger-bg text-danger' : '')}
+            title={hasDateError ? 'This date is earlier than the preceding step' : undefined}
           />
 
           {/* Staff */}
