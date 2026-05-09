@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Mail, UserCheck, UserX, Trash2, X } from 'lucide-react'
+import { Plus, Mail, UserCheck, UserX } from 'lucide-react'
 import { Staff, EMPLOYMENT_TYPES, getStaff, createStaff, updateStaff, deleteStaff } from '@/lib/staff'
 import { createClient } from '@/lib/supabase-browser'
+import StaffActivityPanel from '@/components/StaffActivityPanel'
+
+type Tab = 'staff' | 'activity'
 
 const COLOURS = [
   '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F97316',
@@ -13,6 +16,7 @@ const COLOURS = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StaffSettingsPage() {
+  const [tab, setTab] = useState<Tab>('staff')
   const [staff, setStaff] = useState<Staff[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,13 +67,32 @@ export default function StaffSettingsPage() {
 
   return (
     <div className="p-10 max-w-[1200px]">
-      <div className="mb-8">
+      <div className="mb-6">
         <p className="text-[10px] uppercase tracking-widest text-text-subtle mb-1">Settings</p>
         <h2 className="text-4xl font-medium text-text tracking-tight">Staff</h2>
         <p className="text-text-muted mt-2 text-sm">Manage staff members, roles and system access.</p>
       </div>
 
-      <div className="flex gap-6">
+      {/* Tabs */}
+      <div className="flex gap-1 mb-8 border-b border-border">
+        {(['staff', 'activity'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              tab === t
+                ? 'border-accent text-text'
+                : 'border-transparent text-text-muted hover:text-text'
+            }`}
+          >
+            {t === 'activity' ? 'Activity' : 'Staff'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'activity' && <StaffActivityPanel />}
+
+      {tab === 'staff' && <div className="flex gap-6">
         {/* Sidebar */}
         <aside className="w-64 shrink-0">
           <button onClick={() => { setShowNew(true); setSelectedId(null) }}
@@ -142,7 +165,7 @@ export default function StaffSettingsPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
