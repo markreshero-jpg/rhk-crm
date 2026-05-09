@@ -344,7 +344,8 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
 
 // ── Event Edit Row ─────────────────────────────────────────────────────────────
 
-const cellCls = 'text-xs bg-transparent border border-transparent rounded px-1.5 py-1 focus:bg-surface focus:border-accent focus:outline-none'
+const cellCls = 'w-full text-xs bg-transparent border border-transparent rounded px-1.5 py-1 focus:bg-surface focus:border-accent focus:outline-none'
+const Divider = () => <div className="w-px h-4 bg-border shrink-0" />
 
 function EventEditRow({ event, staff, hasDateError, onUpdate }: {
   event: JobScheduleEventWithRelations
@@ -353,73 +354,93 @@ function EventEditRow({ event, staff, hasDateError, onUpdate }: {
   onUpdate: (patch: Partial<JobScheduleEvent>) => Promise<void>
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
 
       {/* Not needed toggle — always visible so it can be unchecked */}
-      <input
-        type="checkbox"
-        checked={event.not_needed}
-        onChange={(e) => onUpdate({ not_needed: e.target.checked })}
-        title={event.not_needed ? 'Mark as needed' : 'Mark as not needed'}
-        className="shrink-0 cursor-pointer accent-accent"
-      />
+      <div className="w-5 flex justify-center shrink-0">
+        <input
+          type="checkbox"
+          checked={event.not_needed}
+          onChange={(e) => onUpdate({ not_needed: e.target.checked })}
+          title={event.not_needed ? 'Mark as needed' : 'Mark as not needed'}
+          className="cursor-pointer accent-accent"
+        />
+      </div>
+
+      <Divider />
 
       {event.not_needed ? (
-        /* Greyed-out placeholder when not needed */
-        <span className="text-xs text-text-faint italic line-through select-none">
-          {[event.trade_type, event.title].filter(Boolean).join(' — ') || 'Not needed'}
-          {' '}— not needed
+        <span className="text-xs text-text-faint italic line-through select-none px-1">
+          {[event.trade_type, event.title].filter(Boolean).join(' — ') || 'Not needed'} — not needed
         </span>
       ) : (
         <>
           {/* Status */}
-          <select
-            value={event.status}
-            onChange={(e) => onUpdate({ status: e.target.value as ScheduleEventStatus })}
-            className={`text-[11px] rounded px-1.5 py-1 border font-medium focus:outline-none focus:border-accent shrink-0 ${scheduleStatusStyles[event.status] || ''}`}
-          >
-            {SCHEDULE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div className="w-28 shrink-0">
+            <select
+              value={event.status}
+              onChange={(e) => onUpdate({ status: e.target.value as ScheduleEventStatus })}
+              className={`w-full text-[11px] rounded px-1.5 py-1 border font-medium focus:outline-none focus:border-accent ${scheduleStatusStyles[event.status] || ''}`}
+            >
+              {SCHEDULE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
 
-          {/* Trade type badge */}
-          {event.trade_type && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted border border-border whitespace-nowrap shrink-0">
-              {event.trade_type}
-            </span>
-          )}
+          <Divider />
 
-          {/* Date — red border if out of sequence with the previous event */}
-          <input
-            type="date"
-            defaultValue={event.scheduled_date || ''}
-            onBlur={(e) => {
-              const date = e.target.value || null
-              const patch: Partial<JobScheduleEvent> = { scheduled_date: date }
-              if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
-              onUpdate(patch)
-            }}
-            className={cellCls + ' w-32 shrink-0' + (hasDateError ? ' border-danger-border bg-danger-bg text-danger' : '')}
-            title={hasDateError ? 'This date is earlier than the preceding step' : undefined}
-          />
+          {/* Trade type — fixed width so fields align when absent */}
+          <div className="w-20 shrink-0">
+            {event.trade_type && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted border border-border whitespace-nowrap">
+                {event.trade_type}
+              </span>
+            )}
+          </div>
+
+          <Divider />
+
+          {/* Date — red when out of sequence */}
+          <div className="w-32 shrink-0">
+            <input
+              type="date"
+              defaultValue={event.scheduled_date || ''}
+              onBlur={(e) => {
+                const date = e.target.value || null
+                const patch: Partial<JobScheduleEvent> = { scheduled_date: date }
+                if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
+                onUpdate(patch)
+              }}
+              className={cellCls + (hasDateError ? ' border-danger-border bg-danger-bg text-danger' : '')}
+              title={hasDateError ? 'This date is earlier than the preceding step' : undefined}
+            />
+          </div>
+
+          <Divider />
 
           {/* Staff */}
-          <select
-            defaultValue={event.staff_id || ''}
-            onChange={(e) => onUpdate({ staff_id: e.target.value || null })}
-            className={cellCls + ' shrink-0'}
-          >
-            <option value="">— Staff —</option>
-            {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
-          </select>
+          <div className="w-32 shrink-0">
+            <select
+              defaultValue={event.staff_id || ''}
+              onChange={(e) => onUpdate({ staff_id: e.target.value || null })}
+              className={cellCls}
+            >
+              <option value="">— Staff —</option>
+              {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
+            </select>
+          </div>
+
+          <Divider />
 
           {/* Notes */}
-          <input
-            type="text"
-            defaultValue={event.notes || ''}
-            onBlur={(e) => onUpdate({ notes: e.target.value || null })}
-            placeholder="Notes…"
-            className={cellCls + ' flex-1 min-w-0'}
-          />
+          <div className="flex-1 min-w-0">
+            <input
+              type="text"
+              defaultValue={event.notes || ''}
+              onBlur={(e) => onUpdate({ notes: e.target.value || null })}
+              placeholder="Notes…"
+              className={cellCls}
+            />
+          </div>
         </>
       )}
     </div>
