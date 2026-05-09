@@ -34,6 +34,30 @@ export type JobScheduleEventWithRelations = JobScheduleEvent & {
   work_order: { work_order_number: string | null; title: string | null } | null
 }
 
+export type FieldScheduleEvent = JobScheduleEvent & {
+  job: { job_number: string | null; title: string | null; client: { name: string } | null } | null
+  work_order: { work_order_number: string | null; title: string | null } | null
+}
+
+export async function getMyScheduleEvents(staffId: string): Promise<FieldScheduleEvent[]> {
+  const today = new Date().toISOString().slice(0, 10)
+  const end = new Date()
+  end.setDate(end.getDate() + 7)
+  const endIso = end.toISOString().slice(0, 10)
+
+  const { data, error } = await supabase
+    .from('job_schedule_events')
+    .select('*, job:jobs(job_number, title, client:clients(name)), work_order:work_orders(work_order_number, title)')
+    .eq('staff_id', staffId)
+    .eq('not_needed', false)
+    .gte('scheduled_date', today)
+    .lte('scheduled_date', endIso)
+    .order('scheduled_date', { ascending: true })
+    .order('sort', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as FieldScheduleEvent[]
+}
+
 export async function getScheduleEventsByWorkOrderId(workOrderId: string): Promise<JobScheduleEventWithRelations[]> {
   const { data, error } = await supabase
     .from('job_schedule_events')

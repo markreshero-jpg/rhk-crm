@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getDashboardData, DashboardData, WorkOrderSummary, ScheduleEventSummary, PODraftSummary } from '@/lib/dashboard'
+import { createClient } from '@/lib/supabase-browser'
+import { Staff, getStaffByUserId } from '@/lib/staff'
+import FieldDashboard from '@/components/FieldDashboard'
 
 const PIPELINE_STAGES = ['Inquiry', 'Quote Sent', 'Quote Accepted', 'In Production', 'Completed']
 
@@ -43,12 +46,31 @@ function statusBadgeClass(status: string | null): string {
 }
 
 export default function DashboardPage() {
+  const [fieldStaff, setFieldStaff] = useState<Staff | null>(null)
+  const [roleChecked, setRoleChecked] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDashboardData().then(setData).finally(() => setLoading(false))
+    async function init() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const staff = await getStaffByUserId(session.user.id)
+        if (staff?.dashboard_role === 'field') {
+          setFieldStaff(staff)
+          setRoleChecked(true)
+          return
+        }
+      }
+      setRoleChecked(true)
+      getDashboardData().then(setData).finally(() => setLoading(false))
+    }
+    init()
   }, [])
+
+  if (!roleChecked) return null
+  if (fieldStaff) return <FieldDashboard staff={fieldStaff} />
 
   const inProduction = data?.jobsByStatus['In Production'] ?? 0
   const quotesOut    = data?.jobsByStatus['Quote Sent'] ?? 0

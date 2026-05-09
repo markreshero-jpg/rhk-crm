@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Plus, Mail, UserCheck, UserX } from 'lucide-react'
-import { Staff, EMPLOYMENT_TYPES, getStaff, createStaff, updateStaff, deleteStaff } from '@/lib/staff'
+import { Staff, DashboardRole, EMPLOYMENT_TYPES, getStaff, createStaff, updateStaff, deleteStaff } from '@/lib/staff'
 import { createClient } from '@/lib/supabase-browser'
 import StaffActivityPanel from '@/components/StaffActivityPanel'
 
@@ -41,6 +41,7 @@ export default function StaffSettingsPage() {
       display_name: data.display_name || data.first_name || '',
       role: data.role ?? null,
       employment_type: data.employment_type ?? null,
+      dashboard_role: data.dashboard_role ?? 'office',
       phone: data.phone ?? null,
       email: data.email ?? null,
       colour: data.colour ?? COLOURS[0],
@@ -298,6 +299,7 @@ function StaffForm({ initialData, onSubmit, onCancel, submitLabel = 'Save' }: {
     display_name: initialData?.display_name || '',
     role: initialData?.role || '',
     employment_type: initialData?.employment_type || null,
+    dashboard_role: initialData?.dashboard_role ?? 'office',
     phone: initialData?.phone || '',
     email: initialData?.email || '',
     colour: initialData?.colour || COLOURS[0],
@@ -365,6 +367,18 @@ function StaffForm({ initialData, onSubmit, onCancel, submitLabel = 'Save' }: {
             </select>
           </Field>
         </div>
+        <Field label="Dashboard View">
+          <select
+            value={form.dashboard_role ?? 'office'}
+            onChange={(e) => setForm((p) => ({ ...p, dashboard_role: e.target.value as DashboardRole }))}
+            className={inputCls}
+          >
+            <option value="office">Office — full business dashboard</option>
+            <option value="field">Field — daily tasks &amp; job clock</option>
+            <option value="admin">Admin — same as office</option>
+          </select>
+          <p className="text-xs text-text-faint mt-1">Controls which dashboard this person sees when they log in.</p>
+        </Field>
       </section>
 
       <section className="space-y-4">

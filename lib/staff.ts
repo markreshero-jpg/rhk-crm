@@ -3,6 +3,8 @@ import { supabase } from './supabase'
 export const EMPLOYMENT_TYPES = ['Employee', 'Contractor', 'Subcontractor', 'Casual', 'Other'] as const
 export type EmploymentType = typeof EMPLOYMENT_TYPES[number]
 
+export type DashboardRole = 'admin' | 'office' | 'field'
+
 export type Staff = {
   id: string
   user_id: string | null
@@ -11,6 +13,7 @@ export type Staff = {
   display_name: string
   role: string | null
   employment_type: EmploymentType | null
+  dashboard_role: DashboardRole
   phone: string | null
   email: string | null
   colour: string | null

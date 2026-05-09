@@ -1,12 +1,50 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
+import { createClient } from '@/lib/supabase-browser'
+import { getStaffByUserId } from '@/lib/staff'
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
+  const [isField, setIsField] = useState(false)
+  const [roleLoaded, setRoleLoaded] = useState(false)
 
+  useEffect(() => {
+    async function checkRole() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const staff = await getStaffByUserId(session.user.id)
+        if (staff?.dashboard_role === 'field') {
+          setIsField(true)
+        }
+      }
+      setRoleLoaded(true)
+    }
+    checkRole()
+  }, [])
+
+  // Don't flash the sidebar while loading role
+  if (!roleLoaded) {
+    return (
+      <div className="flex h-screen bg-app-bg items-center justify-center">
+        <span className="text-text-faint text-sm">Loading…</span>
+      </div>
+    )
+  }
+
+  // Field staff — full-width, no sidebar
+  if (isField) {
+    return (
+      <div className="min-h-screen bg-app-bg">
+        {children}
+      </div>
+    )
+  }
+
+  // Office / admin — normal shell with sidebar
   return (
     <div className="flex h-screen bg-app-bg">
       {/* Mobile backdrop */}
@@ -17,7 +55,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         />
       )}
 
-      {/* Sidebar — fixed overlay on mobile, static on desktop */}
+      {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-30 transition-transform duration-300 ease-in-out
         lg:relative lg:translate-x-0 lg:transition-none
