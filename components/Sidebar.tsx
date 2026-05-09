@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { Briefcase, Users, Calendar, BookTemplate, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut, Timer } from 'lucide-react'
+import { Briefcase, Users, Calendar, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut, Timer } from 'lucide-react'
 import { useTheme } from '@/lib/useTheme'
 import { createClient } from '@/lib/supabase-browser'
 
@@ -14,7 +14,6 @@ const navItems = [
   { href: '/work-orders', label: 'Work Orders', icon: ClipboardList },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/templates', label: 'Templates', icon: BookTemplate },
   { href: '/suppliers', label: 'Suppliers', icon: Truck },
   { href: '/clock', label: 'Clock In/Out', icon: Timer },
 ]

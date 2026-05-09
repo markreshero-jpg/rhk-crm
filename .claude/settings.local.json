@@ -3,7 +3,19 @@
     "allow": [
       "mcp__claude_ai_Supabase__execute_sql",
       "mcp__claude_ai_Supabase__apply_migration",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(npx tsc *)",
+      "PowerShell(git *)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('@supabase/ssr'\\); console.log\\('ok'\\)\")",
+      "PowerShell(New-Item *)",
+      "mcp__claude_ai_Supabase__get_project",
+      "Bash(Select-String \"@types/google\")",
+      "Bash(Select-String \"AddressAutocomplete|google.maps\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "mcp__claude_ai_Supabase__list_projects"
     ]
   }
 }
