@@ -21,6 +21,7 @@ export type WorkOrder = {
   is_locked: boolean
   notes: string | null
   internal_notes: string | null
+  sequence_id: string | null
   created_at: string
   updated_at: string
 }

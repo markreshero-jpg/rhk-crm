@@ -20,7 +20,7 @@ export default function NewSupplierPage() {
         <h1 className="text-xl font-semibold text-text">New Supplier</h1>
         <p className="text-sm text-text-subtle mt-0.5">Add a new supplier to your database</p>
       </div>
-      <SupplierForm onSubmit={handleSubmit} submitLabel="Save Supplier" />
+      <SupplierForm onSubmit={handleSubmit} onCancel={() => router.back()} submitLabel="Save Supplier" />
     </div>
   )
 }

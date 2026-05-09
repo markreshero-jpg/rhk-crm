@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import NumberInputInit from '@/components/NumberInputInit'
 
 export const metadata: Metadata = {
   title: 'RHK CRM',
@@ -21,6 +22,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <NumberInputInit />
         {children}
       </body>
     </html>

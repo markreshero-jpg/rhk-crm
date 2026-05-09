@@ -263,9 +263,11 @@ export default function QuoteItemTemplateDetail({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
-                  {labour.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-6 text-center text-text-subtle text-sm italic">No labour yet.</td></tr>
-                  ) : labour.map((l) => (
+                  {(filterNoEntries ? labour.filter((l) => (l.qty || 0) !== 0) : labour).length === 0 ? (
+                    <tr><td colSpan={6} className="px-4 py-6 text-center text-text-subtle text-sm italic">
+                      {labour.length === 0 ? 'No labour yet.' : 'No lines match the current filter.'}
+                    </td></tr>
+                  ) : (filterNoEntries ? labour.filter((l) => (l.qty || 0) !== 0) : labour).map((l) => (
                     <BundledLabourRow
                       key={l.id}
                       labour={l}

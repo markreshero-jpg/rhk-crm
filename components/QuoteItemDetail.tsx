@@ -156,7 +156,8 @@ export default function QuoteItemDetail({
   const linesGst = lines.reduce((sum, l) => sum + lineGst(l), 0)
   const linesTotal = lines.reduce((sum, l) => sum + lineTotal(l), 0)
 
-  const displayLines = filterNoEntries ? lines.filter((l) => (l.qty || 0) !== 0) : lines
+  const displayLines  = filterNoEntries ? lines.filter((l)  => (l.qty || 0) !== 0) : lines
+  const displayLabour = filterNoEntries ? labour.filter((l) => (l.qty || 0) !== 0) : labour
 
   // Labour summary row
   const labourSubtotalCost = labour.reduce((sum, l) => sum + labourSubtotal(l), 0)
@@ -438,14 +439,14 @@ export default function QuoteItemDetail({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
-                    {labour.length === 0 ? (
+                    {displayLabour.length === 0 ? (
                       <tr>
                         <td colSpan={10} className="px-4 py-8 text-center text-text-subtle text-sm italic">
-                          No labour lines yet.
+                          {labour.length === 0 ? 'No labour lines yet.' : 'No lines match the current filter.'}
                         </td>
                       </tr>
                     ) : (
-                      labour.map((lab) => (
+                      displayLabour.map((lab) => (
                         <LabourRow
                           key={lab.id}
                           labour={lab}

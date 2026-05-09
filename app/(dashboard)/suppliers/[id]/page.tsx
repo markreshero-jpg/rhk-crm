@@ -35,7 +35,6 @@ export default function SupplierDetailPage() {
   const handleDelete = async () => {
     await deleteSupplier(id)
     router.push('/suppliers')
-    router.refresh()
   }
 
   if (loading) {

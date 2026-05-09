@@ -149,8 +149,8 @@ function EventTable({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="border-b border-border bg-surface">
+            <Th>Item Name</Th>
             <Th>Task</Th>
-            <Th>Trade</Th>
             <Th>Date</Th>
             <Th>Staff</Th>
             <Th right>Est. Hrs</Th>

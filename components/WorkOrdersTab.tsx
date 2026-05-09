@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { Plus, Trash2, Lock, Unlock, ChevronRight, Download, ShoppingCart, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, Lock, Unlock, ChevronRight, Download, ShoppingCart, CheckCircle2, ArrowUpDown, MoreHorizontal, Calendar } from 'lucide-react'
 import {
   WorkOrder, WorkOrderLine, LineGroup, LineStatusOption, WOLinePOStatus,
   WORK_ORDER_STATUSES,
@@ -18,6 +18,12 @@ import {
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { stageBadgeStyles } from '@/lib/stageStyles'
 import { getIssuesByJobId, Issue } from '@/lib/issues'
+import { WorkOrderSequence, getWorkOrderSequences, getSequenceSteps } from '@/lib/workOrderSequences'
+import {
+  JobScheduleEventWithRelations, ScheduleEventStatus, SCHEDULE_STATUSES,
+  updateScheduleEvent, createScheduleEvent, deleteScheduleEvent, getScheduleEventsByWorkOrderId,
+} from '@/lib/jobSchedule'
+import { Staff, getActiveStaff } from '@/lib/staff'
 import { formatCurrency } from '@/lib/format'
 
 const statusStyles: Record<string, string> = {
@@ -67,9 +73,9 @@ export default function WorkOrdersTab({ jobId }: { jobId: string }) {
   const selected = workOrders.find((w) => w.id === selectedId) ?? null
 
   return (
-    <div className="flex gap-6">
-      {/* Left rail */}
-      <aside className="w-56 shrink-0">
+    <div className="grid grid-cols-[14rem_1fr] gap-6 items-start">
+      {/* Col 1: WO list */}
+      <aside>
         <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-3">Work Orders</h3>
         <button type="button" onClick={handleNew} disabled={busy}
           className="w-full flex items-center gap-2 px-3 py-2 text-xs text-accent-text bg-accent rounded-md hover:bg-accent-hover disabled:opacity-50 mb-3">
@@ -101,13 +107,12 @@ export default function WorkOrdersTab({ jobId }: { jobId: string }) {
         </ul>
       </aside>
 
-      {/* Right panel */}
-      <div className="flex-1 min-w-0">
+      {/* Col 2: WO header details */}
+      <div>
         {selected ? (
-          <WorkOrderPanel
+          <WorkOrderDetails
             key={selected.id}
             workOrder={selected}
-            jobId={jobId}
             onUpdate={async (patch) => { await updateWorkOrder(selected.id, patch); await load() }}
             onDelete={() => handleDelete(selected.id)}
           />
@@ -115,18 +120,139 @@ export default function WorkOrdersTab({ jobId }: { jobId: string }) {
           <div className="text-center py-16 text-text-subtle text-sm">Select a work order or create a new one.</div>
         )}
       </div>
+
+      {/* Row 2: tab card spans both columns */}
+      {selected && (
+        <div className="col-span-2">
+          <WorkOrderTabs
+            key={selected.id}
+            workOrder={selected}
+            jobId={jobId}
+            onUpdate={async (patch) => { await updateWorkOrder(selected.id, patch); await load() }}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Work Order Panel ──────────────────────────────────────────────────────────
+// ── Work Order Details (header) ───────────────────────────────────────────────
 
-function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
+function WorkOrderDetails({ workOrder, onUpdate, onDelete }: {
   workOrder: WorkOrder
-  jobId: string
   onUpdate: (patch: Partial<WorkOrder>) => Promise<void>
   onDelete: () => void
 }) {
+  const [sequences, setSequences] = useState<WorkOrderSequence[]>([])
+  const [showActions, setShowActions] = useState(false)
+  const actionsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { getWorkOrderSequences().then(setSequences) }, [])
+
+  useEffect(() => {
+    if (!showActions) return
+    function handler(e: MouseEvent) {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) setShowActions(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showActions])
+
+  function blurSave(field: keyof WorkOrder) {
+    return (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const val = e.target.value
+      onUpdate({ [field]: val === '' ? null : val })
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-12 gap-2">
+        <div className="col-span-2">
+          <Label>WO Number</Label>
+          <input type="text" defaultValue={workOrder.work_order_number || ''} onBlur={blurSave('work_order_number')} placeholder="WO-001" className={inputCls} />
+        </div>
+        <div className="col-span-5">
+          <Label>Title</Label>
+          <input type="text" defaultValue={workOrder.title || ''} onBlur={blurSave('title')} placeholder="Work order title" className={inputCls} />
+        </div>
+        <div className="col-span-3">
+          <Label>Status</Label>
+          <select defaultValue={workOrder.status} onChange={(e) => onUpdate({ status: e.target.value as WorkOrder['status'] })} className={inputCls}>
+            {WORK_ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="col-span-2 flex flex-col justify-end">
+          <div className="relative" ref={actionsRef}>
+            <button
+              type="button"
+              onClick={() => setShowActions((v) => !v)}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-md border border-border-strong bg-surface text-text-muted hover:bg-surface-hover transition-colors"
+            >
+              <MoreHorizontal size={14} /> Actions
+            </button>
+            {showActions && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-lg shadow-lg z-20 py-1 text-sm">
+                <button
+                  type="button"
+                  onClick={() => { onUpdate({ is_locked: !workOrder.is_locked }); setShowActions(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-text-muted"
+                >
+                  {workOrder.is_locked ? <Unlock size={13} /> : <Lock size={13} />}
+                  {workOrder.is_locked ? 'Unlock work order' : 'Lock work order'}
+                </button>
+                <div className="border-t border-border my-1" />
+                <button
+                  type="button"
+                  onClick={() => { setShowActions(false); onDelete() }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-hover text-danger"
+                >
+                  <Trash2 size={13} /> Delete work order
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-2">
+        <div className="col-span-3">
+          <Label>Scheduled Start</Label>
+          <input type="date" defaultValue={workOrder.scheduled_start?.slice(0, 10) || ''} onBlur={blurSave('scheduled_start')} className={inputCls} />
+        </div>
+        <div className="col-span-3">
+          <Label>Scheduled End</Label>
+          <input type="date" defaultValue={workOrder.scheduled_end?.slice(0, 10) || ''} onBlur={blurSave('scheduled_end')} className={inputCls} />
+        </div>
+        <div className="col-span-2">
+          <Label>Revision</Label>
+          <input type="number" defaultValue={workOrder.revision_number} min={1} onBlur={(e) => onUpdate({ revision_number: parseInt(e.target.value) || 1 })} className={inputCls} />
+        </div>
+        <div className="col-span-4">
+          <Label>Event Sequence</Label>
+          <select value={workOrder.sequence_id || ''} onChange={(e) => onUpdate({ sequence_id: e.target.value || null })} className={inputCls}>
+            <option value="">— None —</option>
+            {sequences.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <Label>Notes</Label>
+        <textarea defaultValue={workOrder.notes || ''} onBlur={blurSave('notes')} rows={2} placeholder="Notes..." className={inputCls + ' resize-none w-full'} />
+      </div>
+    </div>
+  )
+}
+
+// ── Work Order Tabs (items + events) ──────────────────────────────────────────
+
+function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
+  workOrder: WorkOrder
+  jobId: string
+  onUpdate: (patch: Partial<WorkOrder>) => Promise<void>
+}) {
+  const [activeTab, setActiveTab] = useState<'items' | 'events'>('items')
   const [lines, setLines] = useState<WorkOrderLine[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [statusOptions, setStatusOptions] = useState<LineStatusOption[]>([])
@@ -135,6 +261,10 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
   const [showImportModal, setShowImportModal] = useState(false)
   const [showPOModal, setShowPOModal] = useState(false)
   const [viewingPoId, setViewingPoId] = useState<string | null>(null)
+  const [events, setEvents] = useState<JobScheduleEventWithRelations[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
+  const [resorting, setResorting] = useState(false)
 
   const loadLines = useCallback(async () => {
     const [l, s, opts] = await Promise.all([
@@ -149,12 +279,41 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
     getPOStatusForWOLines(l.map((x) => x.id)).then(setPoStatusMap)
   }, [workOrder.id])
 
-  useEffect(() => { loadLines() }, [loadLines])
+  const loadEvents = useCallback(async () => {
+    setLoadingEvents(true)
+    const [evts, staffList] = await Promise.all([
+      getScheduleEventsByWorkOrderId(workOrder.id),
+      getActiveStaff(),
+    ])
+    setEvents(evts)
+    setStaff(staffList)
+    setLoadingEvents(false)
+  }, [workOrder.id])
 
-  function blurSave(field: keyof WorkOrder) {
-    return (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      const val = e.target.value
-      onUpdate({ [field]: val === '' ? null : val })
+  useEffect(() => { loadLines() }, [loadLines])
+  useEffect(() => { if (activeTab === 'events') loadEvents() }, [activeTab, loadEvents])
+
+  async function handleResort() {
+    if (!workOrder.sequence_id) return
+    setResorting(true)
+    try {
+      const [steps, evts] = await Promise.all([
+        getSequenceSteps(workOrder.sequence_id),
+        getScheduleEventsByWorkOrderId(workOrder.id),
+      ])
+      const stepIndex = new Map(steps.map((s) => [s.task_name.toLowerCase(), s.sort]))
+      const matched = evts
+        .filter((e) => stepIndex.has((e.trade_type || '').toLowerCase()))
+        .sort((a, b) => {
+          const sa = stepIndex.get((a.trade_type || '').toLowerCase()) ?? 9999
+          const sb = stepIndex.get((b.trade_type || '').toLowerCase()) ?? 9999
+          return sa - sb
+        })
+      const unmatched = evts.filter((e) => !stepIndex.has((e.trade_type || '').toLowerCase()))
+      await Promise.all([...matched, ...unmatched].map((e, i) => updateScheduleEvent(e.id, { sort: i + 1 })))
+      await loadEvents()
+    } finally {
+      setResorting(false)
     }
   }
 
@@ -185,153 +344,217 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
     await loadLines()
   }
 
+  async function handleAddEvent() {
+    await createScheduleEvent({
+      job_id: jobId,
+      work_order_id: workOrder.id,
+      title: '',
+      status: 'Unscheduled',
+      sort: events.length + 1,
+    })
+    await loadEvents()
+  }
+
+  async function handleUpdateEvent(id: string, patch: Partial<JobScheduleEventWithRelations>) {
+    await updateScheduleEvent(id, patch)
+    await loadEvents()
+  }
+
+  async function handleDeleteEvent(id: string) {
+    if (!confirm('Delete this schedule event?')) return
+    await deleteScheduleEvent(id)
+    await loadEvents()
+  }
+
   const groups = groupWorkOrderLines(lines)
   const grandTotal = lines.reduce((s, l) => s + (l.qty || 0) * (l.unit_cost || 0), 0)
   const tickedLines = lines.filter((l) => l.include_on_po && !poStatusMap.has(l.id))
 
   return (
-    <div className="space-y-5">
+    <div>
 
-      {/* Header */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-2">
-            <Label>WO Number</Label>
-            <input type="text" defaultValue={workOrder.work_order_number || ''} onBlur={blurSave('work_order_number')} placeholder="WO-001" className={inputCls} />
-          </div>
-          <div className="col-span-4">
-            <Label>Title</Label>
-            <input type="text" defaultValue={workOrder.title || ''} onBlur={blurSave('title')} placeholder="Work order title" className={inputCls} />
-          </div>
-          <div className="col-span-3">
-            <Label>Status</Label>
-            <select defaultValue={workOrder.status} onChange={(e) => onUpdate({ status: e.target.value as WorkOrder['status'] })} className={inputCls}>
-              {WORK_ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="col-span-2 flex flex-col justify-end">
-            <button type="button" onClick={() => onUpdate({ is_locked: !workOrder.is_locked })}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-md border transition-colors ${workOrder.is_locked ? 'bg-warning-bg text-warning border-warning-border' : 'bg-surface text-text-muted border-border-strong hover:bg-surface-hover'}`}>
-              {workOrder.is_locked ? <Lock size={11} /> : <Unlock size={11} />}
-              {workOrder.is_locked ? 'Locked' : 'Unlocked'}
+        {/* Tab bar */}
+        <div className="flex items-end gap-1 px-2">
+          {(['items', 'events'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`relative px-4 py-2.5 text-sm rounded-t-md border transition-colors ${
+                activeTab === tab
+                  ? 'bg-surface border-border border-b-surface text-text font-medium z-10 -mb-px'
+                  : 'bg-surface-muted border-transparent text-text-muted hover:text-text hover:bg-surface-hover'
+              }`}
+            >
+              {tab === 'items' ? 'Items' : 'Work Order Events'}
             </button>
-          </div>
-          <div className="col-span-1 flex flex-col justify-end">
-            <button type="button" onClick={onDelete} className="text-xs text-danger hover:opacity-80 px-2 py-2">Delete</button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-3">
-            <Label>Scheduled Start</Label>
-            <input type="date" defaultValue={workOrder.scheduled_start?.slice(0, 10) || ''} onBlur={blurSave('scheduled_start')} className={inputCls} />
-          </div>
-          <div className="col-span-3">
-            <Label>Scheduled End</Label>
-            <input type="date" defaultValue={workOrder.scheduled_end?.slice(0, 10) || ''} onBlur={blurSave('scheduled_end')} className={inputCls} />
-          </div>
-          <div className="col-span-2">
-            <Label>Revision</Label>
-            <input type="number" defaultValue={workOrder.revision_number} min={1} onBlur={(e) => onUpdate({ revision_number: parseInt(e.target.value) || 1 })} className={inputCls} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Notes</Label>
-            <textarea defaultValue={workOrder.notes || ''} onBlur={blurSave('notes')} rows={2} placeholder="Notes..." className={inputCls + ' resize-none'} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Label>Internal Notes</Label>
-              <span className="text-[10px] uppercase tracking-widest font-medium px-1.5 py-0.5 rounded bg-warning-bg text-warning border border-warning-border">Internal only</span>
-            </div>
-            <textarea defaultValue={workOrder.internal_notes || ''} onBlur={blurSave('internal_notes')} rows={2} placeholder="Internal notes..." className={inputCls + ' resize-none'} />
-          </div>
-        </div>
-      </div>
-
-      <hr className="border-border" />
-
-      {/* Items section */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Items</h3>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors">
-              <Download size={12} /> Import from Quote
-            </button>
-            <button type="button" onClick={handleAddLine}
-              className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors">
-              <Plus size={12} /> Add Line
-            </button>
-          </div>
-        </div>
-
-        {loadingLines ? (
-          <p className="text-text-subtle text-sm">Loading...</p>
-        ) : lines.length === 0 ? (
-          <div className="border border-dashed border-border rounded-lg py-12 text-center">
-            <p className="text-text-subtle text-sm mb-3">No items yet.</p>
-            <div className="flex items-center justify-center gap-3">
-              <button onClick={() => setShowImportModal(true)} className="text-sm text-text underline hover:no-underline">Import from quote</button>
-              <span className="text-text-faint">or</span>
-              <button onClick={handleAddLine} className="text-sm text-text underline hover:no-underline">add a line manually</button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {groups.map((group) => (
-              <ItemGroup
-                key={group.name}
-                group={group}
-                suppliers={suppliers}
-                statusOptions={statusOptions}
-                poStatusMap={poStatusMap}
-                onUpdateLine={handleUpdateLine}
-                onDeleteLine={handleDeleteLine}
-                onUpdateGroupStatus={(patch) => handleUpdateGroupStatus(group.name, patch)}
-                onToggleGroupPO={(value) => handleToggleGroupPO(group.name, value)}
-                onViewPO={setViewingPoId}
-              />
-            ))}
-
-            <div className="flex justify-end gap-8 pt-3 border-t border-border text-sm">
-              <div className="text-right space-y-0.5">
-                <div className="flex justify-between gap-12 text-xs text-text-muted">
-                  <span>Subtotal (ex GST)</span><span>{formatCurrency(grandTotal)}</span>
-                </div>
-                <div className="flex justify-between gap-12 text-xs text-text-muted">
-                  <span>GST (10%)</span><span>{formatCurrency(grandTotal * 0.1)}</span>
-                </div>
-                <div className="flex justify-between gap-12 font-semibold text-text">
-                  <span>Total (inc GST)</span><span>{formatCurrency(grandTotal * 1.1)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Create PO button */}
-      {lines.length > 0 && (
-        <div className="pt-4 border-t border-border">
-          <button type="button" disabled={tickedLines.length === 0} onClick={() => setShowPOModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-            <ShoppingCart size={14} />
-            Create Purchase Orders
-            {tickedLines.length > 0 && (
-              <span className="ml-1 bg-accent-hover text-accent-text px-1.5 py-0.5 rounded text-[11px]">
-                {tickedLines.length} line{tickedLines.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </button>
-          {tickedLines.length === 0 && (
-            <p className="mt-1.5 text-xs text-text-subtle">Check &quot;Send to PO&quot; on lines to enable.</p>
+          ))}
+          {workOrder.is_locked && (
+            <span className="ml-3 flex items-center gap-1 text-[10px] text-warning font-medium pb-2">
+              <Lock size={10} /> Locked
+            </span>
           )}
         </div>
-      )}
+
+        {/* Tab content */}
+        <div className="bg-surface border border-border rounded-lg rounded-tl-none p-4">
+
+          {/* ── Items tab ── */}
+          {activeTab === 'items' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Items</h3>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowImportModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover transition-colors">
+                  <Download size={12} /> Import from Quote
+                </button>
+                <button type="button" onClick={handleAddLine}
+                  className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors">
+                  <Plus size={12} /> Add Line
+                </button>
+              </div>
+            </div>
+
+            {loadingLines ? (
+              <p className="text-text-subtle text-sm">Loading...</p>
+            ) : lines.length === 0 ? (
+              <div className="border border-dashed border-border rounded-lg py-12 text-center">
+                <p className="text-text-subtle text-sm mb-3">No items yet.</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button onClick={() => setShowImportModal(true)} className="text-sm text-text underline hover:no-underline">Import from quote</button>
+                  <span className="text-text-faint">or</span>
+                  <button onClick={handleAddLine} className="text-sm text-text underline hover:no-underline">add a line manually</button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {groups.map((group) => (
+                  <ItemGroup
+                    key={group.name}
+                    group={group}
+                    suppliers={suppliers}
+                    statusOptions={statusOptions}
+                    poStatusMap={poStatusMap}
+                    onUpdateLine={handleUpdateLine}
+                    onDeleteLine={handleDeleteLine}
+                    onUpdateGroupStatus={(patch) => handleUpdateGroupStatus(group.name, patch)}
+                    onToggleGroupPO={(value) => handleToggleGroupPO(group.name, value)}
+                    onViewPO={setViewingPoId}
+                  />
+                ))}
+
+                <div className="flex justify-end gap-8 pt-3 border-t border-border text-sm">
+                  <div className="text-right space-y-0.5">
+                    <div className="flex justify-between gap-12 text-xs text-text-muted">
+                      <span>Subtotal (ex GST)</span><span>{formatCurrency(grandTotal)}</span>
+                    </div>
+                    <div className="flex justify-between gap-12 text-xs text-text-muted">
+                      <span>GST (10%)</span><span>{formatCurrency(grandTotal * 0.1)}</span>
+                    </div>
+                    <div className="flex justify-between gap-12 font-semibold text-text">
+                      <span>Total (inc GST)</span><span>{formatCurrency(grandTotal * 1.1)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Create PO button */}
+            {lines.length > 0 && (
+              <div className="pt-4 border-t border-border">
+                <button type="button" disabled={tickedLines.length === 0} onClick={() => setShowPOModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ShoppingCart size={14} />
+                  Create Purchase Orders
+                  {tickedLines.length > 0 && (
+                    <span className="ml-1 bg-accent-hover text-accent-text px-1.5 py-0.5 rounded text-[11px]">
+                      {tickedLines.length} line{tickedLines.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </button>
+                {tickedLines.length === 0 && (
+                  <p className="mt-1.5 text-xs text-text-subtle">Check &quot;Send to PO&quot; on lines to enable.</p>
+                )}
+              </div>
+            )}
+          </div>
+          )}
+
+          {/* ── Work Order Events tab ── */}
+          {activeTab === 'events' && (() => {
+            // Compute date errors: flag any event whose date is earlier than the previous dated event
+            const dateErrors = new Set<string>()
+            let prevDate: string | null = null
+            for (const event of events) {
+              if (!event.scheduled_date) continue
+              if (prevDate && event.scheduled_date < prevDate) dateErrors.add(event.id)
+              prevDate = event.scheduled_date
+            }
+            return (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] uppercase tracking-widest text-text-subtle font-medium">Work Order Events</h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResort}
+                    disabled={!workOrder.sequence_id || resorting}
+                    title={workOrder.sequence_id ? 'Re-sort events by the assigned sequence' : 'Assign an Event Sequence above first'}
+                    className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowUpDown size={12} /> {resorting ? 'Re-sorting…' : 'Re-sort by Sequence'}
+                  </button>
+                  <button type="button" onClick={handleAddEvent}
+                    className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover transition-colors">
+                    <Plus size={12} /> Add Event
+                  </button>
+                </div>
+              </div>
+
+              {loadingEvents ? (
+                <p className="text-text-subtle text-sm">Loading…</p>
+              ) : events.length === 0 ? (
+                <div className="border border-dashed border-border rounded-lg py-12 text-center">
+                  <Calendar size={24} className="mx-auto text-text-faint mb-3" />
+                  <p className="text-text-subtle text-sm mb-1">No events linked to this work order.</p>
+                  <p className="text-text-faint text-xs">Add events manually or import labour from a quote on the Schedule tab.</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-md overflow-x-auto">
+                  <table className="w-full text-xs border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-border bg-surface-muted">
+                        <WOETh>Item Name</WOETh>
+                        <WOETh>Task</WOETh>
+                        <WOETh>Date</WOETh>
+                        <WOETh>Staff</WOETh>
+                        <WOETh right>Est. Hrs</WOETh>
+                        <WOETh right>Actual Hrs</WOETh>
+                        <WOETh>Status</WOETh>
+                        <WOETh />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {events.map((event) => (
+                        <WOEventRow
+                          key={event.id}
+                          event={event}
+                          staff={staff}
+                          hasDateError={dateErrors.has(event.id)}
+                          onUpdate={(patch) => handleUpdateEvent(event.id, patch)}
+                          onDelete={() => handleDeleteEvent(event.id)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            )
+          })()}
+
+        </div>
 
       {viewingPoId && (
         <POPreviewModal poId={viewingPoId} onClose={() => setViewingPoId(null)} />
@@ -354,6 +577,97 @@ function WorkOrderPanel({ workOrder, jobId, onUpdate, onDelete }: {
     </div>
   )
 }
+
+// ── Work Order Event Row ───────────────────────────────────────────────────────
+
+const woEventStatusStyles: Record<string, string> = {
+  'Unscheduled': 'bg-surface-muted text-text-muted border-border',
+  'Scheduled':   'bg-info-bg text-info border-info-border',
+  'In Progress': 'bg-warning-bg text-warning border-warning-border',
+  'Completed':   'bg-success-bg text-success border-success-border',
+  'Cancelled':   'bg-surface-muted text-text-faint border-border',
+}
+
+function WOEventRow({
+  event,
+  staff,
+  hasDateError,
+  onUpdate,
+  onDelete,
+}: {
+  event: JobScheduleEventWithRelations
+  staff: Staff[]
+  hasDateError: boolean
+  onUpdate: (patch: Partial<JobScheduleEventWithRelations>) => void
+  onDelete: () => void
+}) {
+  const blurText = (field: string) =>
+    (e: React.FocusEvent<HTMLInputElement>) => onUpdate({ [field]: e.target.value || null })
+
+  const blurNum = (field: string) =>
+    (e: React.FocusEvent<HTMLInputElement>) => onUpdate({ [field]: parseFloat(e.target.value) || null })
+
+  return (
+    <tr className="hover:bg-surface-hover group">
+      <td className="px-1 py-0 min-w-[140px]">
+        <input type="text" defaultValue={event.title || ''} onBlur={blurText('title')}
+          placeholder="Item name" className={woeCellCls} />
+      </td>
+      <td className="px-1 py-0 min-w-[100px]">
+        <input type="text" defaultValue={event.trade_type || ''} onBlur={blurText('trade_type')}
+          placeholder="Task" className={woeCellCls} />
+      </td>
+      <td className="px-1 py-0 w-32">
+        <input type="date" defaultValue={event.scheduled_date || ''}
+          onBlur={(e) => {
+            const date = e.target.value || null
+            const patch: Partial<JobScheduleEventWithRelations> = { scheduled_date: date }
+            if (date && event.status === 'Unscheduled') patch.status = 'Scheduled'
+            onUpdate(patch)
+          }}
+          title={hasDateError ? 'This date is earlier than the preceding step' : undefined}
+          className={woeCellCls + (hasDateError ? ' !border-danger-border !bg-danger-bg !text-danger' : '')} />
+      </td>
+      <td className="px-1 py-0 min-w-[120px]">
+        <select defaultValue={event.staff_id || ''} onChange={(e) => onUpdate({ staff_id: e.target.value || null })}
+          className={woeCellCls}>
+          <option value="">— Unassigned —</option>
+          {staff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}
+        </select>
+      </td>
+      <td className="px-1 py-0 w-20">
+        <input type="number" defaultValue={event.estimated_hours ?? ''} onBlur={blurNum('estimated_hours')}
+          min={0} step={0.5} placeholder="—" className={woeCellCls + ' text-right'} />
+      </td>
+      <td className="px-1 py-0 w-20">
+        <input type="number" defaultValue={event.actual_hours ?? ''} onBlur={blurNum('actual_hours')}
+          min={0} step={0.5} placeholder="—" className={woeCellCls + ' text-right'} />
+      </td>
+      <td className="px-1 py-0 w-28">
+        <select value={event.status} onChange={(e) => onUpdate({ status: e.target.value as ScheduleEventStatus })}
+          className={`w-full text-[11px] rounded px-1.5 py-1 border font-medium focus:outline-none focus:border-accent ${woEventStatusStyles[event.status] || ''}`}>
+          {SCHEDULE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </td>
+      <td className="px-2 py-0 w-8 text-center">
+        <button type="button" onClick={onDelete}
+          className="text-text-faint hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity">
+          <Trash2 size={13} />
+        </button>
+      </td>
+    </tr>
+  )
+}
+
+function WOETh({ children, right }: { children?: React.ReactNode; right?: boolean }) {
+  return (
+    <th className={`py-1.5 px-2 text-[10px] uppercase tracking-widest font-medium text-text-subtle whitespace-nowrap ${right ? 'text-right' : 'text-left'}`}>
+      {children}
+    </th>
+  )
+}
+
+const woeCellCls = 'w-full px-1.5 py-1 text-xs bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none'
 
 // ── Send to PO Modal ──────────────────────────────────────────────────────────
 
