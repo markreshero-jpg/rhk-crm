@@ -6,6 +6,7 @@ import { getDashboardData, DashboardData, WorkOrderSummary, ScheduleEventSummary
 import { createClient } from '@/lib/supabase-browser'
 import { Staff, getStaffByUserId } from '@/lib/staff'
 import FieldDashboard from '@/components/FieldDashboard'
+import ForemanDashboard from '@/components/ForemanDashboard'
 
 const PIPELINE_STAGES = ['Inquiry', 'Quote Sent', 'Quote Accepted', 'In Production', 'Completed']
 
@@ -47,6 +48,7 @@ function statusBadgeClass(status: string | null): string {
 
 export default function DashboardPage() {
   const [fieldStaff, setFieldStaff] = useState<Staff | null>(null)
+  const [foremanStaff, setForemanStaff] = useState<Staff | null>(null)
   const [roleChecked, setRoleChecked] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,6 +64,11 @@ export default function DashboardPage() {
           setRoleChecked(true)
           return
         }
+        if (staff?.dashboard_role === 'foreman') {
+          setForemanStaff(staff)
+          setRoleChecked(true)
+          return
+        }
       }
       setRoleChecked(true)
       getDashboardData().then(setData).finally(() => setLoading(false))
@@ -71,6 +78,7 @@ export default function DashboardPage() {
 
   if (!roleChecked) return null
   if (fieldStaff) return <FieldDashboard staff={fieldStaff} />
+  if (foremanStaff) return <ForemanDashboard staff={foremanStaff} />
 
   const inProduction = data?.jobsByStatus['In Production'] ?? 0
   const quotesOut    = data?.jobsByStatus['Quote Sent'] ?? 0

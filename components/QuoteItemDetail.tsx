@@ -31,6 +31,7 @@ import {
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
 import { QuoteItemWithContext, QuoteItem } from '@/lib/quoteItems'
 import { getAllQuoteItemTemplates, importTemplateToIssue, QuoteItemTemplate } from '@/lib/quoteItemTemplates'
+import { duplicateQuoteItem } from '@/lib/quoteItems'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format'
 import LabourTypeInput from '@/components/LabourTypeInput'
 
@@ -244,6 +245,12 @@ export default function QuoteItemDetail({
             setShowTemplatePicker(false)
             onNewItem?.('')
           }}
+          onDuplicate={async () => {
+            const newItem = await duplicateQuoteItem(item.id)
+            setShowTemplatePicker(false)
+            router.push(`/quote-items/${newItem.id}`)
+          }}
+          currentItemName={item.name || 'this item'}
           onClose={() => setShowTemplatePicker(false)}
         />
       )}
@@ -324,9 +331,9 @@ export default function QuoteItemDetail({
                 </div>
               </div>
 
-              <div className="border border-border rounded-md overflow-x-auto">
+              <div className="border border-border rounded-md overflow-auto max-h-[34rem]">
                 <table className="w-full min-w-[1100px]">
-                  <thead className="bg-surface-muted border-b border-border">
+                  <thead className="bg-surface-muted border-b border-border sticky top-0 z-10">
                     <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
                       <th className="px-1.5 py-1 font-medium w-14">Sort</th>
                       <th className="px-1.5 py-1 font-medium w-40">Item</th>
@@ -372,7 +379,7 @@ export default function QuoteItemDetail({
                     )}
                   </tbody>
                   {lines.length > 0 && !writtenQuoteView && (
-                    <tfoot className="bg-surface-muted border-t border-border">
+                    <tfoot className="bg-surface-muted border-t border-border sticky bottom-0 z-10">
                       <tr className="text-[11px] text-text-muted">
                         <td colSpan={7} className="px-1.5 py-1 text-right font-medium">Totals:</td>
                         <td className="px-1.5 py-1 text-right">{formatCurrency(linesSubtotalCost)}</td>
@@ -684,10 +691,14 @@ function LabourRow({
 function RoomTemplatePicker({
   onImport,
   onCreateBlank,
+  onDuplicate,
+  currentItemName,
   onClose,
 }: {
   onImport: (templateId: string, name: string) => Promise<void>
   onCreateBlank: () => void
+  onDuplicate: () => Promise<void>
+  currentItemName: string
   onClose: () => void
 }) {
   const [templates, setTemplates] = useState<QuoteItemTemplate[]>([])
@@ -695,6 +706,7 @@ function RoomTemplatePicker({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [importName, setImportName] = useState('')
   const [importing, setImporting] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
 
   useEffect(() => {
     getAllQuoteItemTemplates().then((data) => {
@@ -727,11 +739,26 @@ function RoomTemplatePicker({
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 min-h-0">
+          <div className="mb-3 pb-3 border-b border-border">
+            <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-2">Quick Options</p>
+            <button
+              type="button"
+              disabled={duplicating}
+              onClick={async () => { setDuplicating(true); await onDuplicate() }}
+              className="w-full text-left px-3 py-2.5 rounded-md hover:bg-surface-hover text-text transition-colors disabled:opacity-50"
+            >
+              <div className="text-sm font-medium">Duplicate &ldquo;{currentItemName}&rdquo;</div>
+              <div className="text-xs text-text-subtle mt-0.5">Copy this item with all its material and labour lines</div>
+            </button>
+          </div>
+
           {loadingTemplates ? (
             <p className="text-text-subtle text-sm p-4 text-center">Loading templates...</p>
           ) : templates.length === 0 ? (
             <p className="text-text-subtle text-sm p-4 text-center italic">No templates available.</p>
           ) : (
+            <>
+            <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-2">Import from Template</p>
             <ul className="space-y-1">
               {templates.map((t) => (
                 <li key={t.id}>
@@ -754,6 +781,7 @@ function RoomTemplatePicker({
                 </li>
               ))}
             </ul>
+            </>
           )}
         </div>
 

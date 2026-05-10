@@ -2,27 +2,43 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Briefcase, Users, Calendar, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut, Timer } from 'lucide-react'
 import { useTheme } from '@/lib/useTheme'
 import { createClient } from '@/lib/supabase-browser'
+import { getStaffByUserId, Staff } from '@/lib/staff'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/clients', label: 'Clients', icon: Users },
-  { href: '/jobs', label: 'Jobs', icon: Briefcase },
-  { href: '/work-orders', label: 'Work Orders', icon: ClipboardList },
-  { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/suppliers', label: 'Suppliers', icon: Truck },
-  { href: '/clock', label: 'Clock In/Out', icon: Timer },
+const allNavItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'office', 'foreman'] },
+  { href: '/clients', label: 'Clients', icon: Users, roles: ['admin', 'office'] },
+  { href: '/jobs', label: 'Jobs', icon: Briefcase, roles: ['admin', 'office', 'foreman'] },
+  { href: '/work-orders', label: 'Work Orders', icon: ClipboardList, roles: ['admin', 'office', 'foreman'] },
+  { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: ['admin', 'office', 'foreman'] },
+  { href: '/calendar', label: 'Calendar', icon: Calendar, roles: ['admin', 'office', 'foreman'] },
+  { href: '/suppliers', label: 'Suppliers', icon: Truck, roles: ['admin', 'office'] },
+  { href: '/clock', label: 'Clock In/Out', icon: Timer, roles: ['admin', 'office'] },
 ]
 
-export default function Sidebar({ onClose }: { onClose?: () => void }) {
+export default function Sidebar({ onClose, role }: { onClose?: () => void; role?: string | null }) {
+  const navItems = allNavItems.filter((item) => !role || item.roles.includes(role))
   const pathname = usePathname()
   const router = useRouter()
   const { theme, toggle } = useTheme()
   const isDark = theme === 'dark'
+  const [staff, setStaff] = useState<Staff | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const s = await getStaffByUserId(session.user.id)
+        setStaff(s)
+      }
+    }
+    load()
+  }, [])
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -76,14 +92,16 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
         <p className="px-3 text-[10px] uppercase tracking-widest text-accent-text-muted mb-2 mt-6 font-medium">
           Account
         </p>
-        <Link
-          href="/settings"
-          onClick={onClose}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-accent-text-muted hover:bg-accent-hover/50 hover:text-accent-text transition-colors"
-        >
-          <Settings size={16} />
-          <span>Settings</span>
-        </Link>
+        {role !== 'foreman' && (
+          <Link
+            href="/settings"
+            onClick={onClose}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-accent-text-muted hover:bg-accent-hover/50 hover:text-accent-text transition-colors"
+          >
+            <Settings size={16} />
+            <span>Settings</span>
+          </Link>
+        )}
       </nav>
 
       <div className="px-3 pb-2">
@@ -106,17 +124,19 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
       <div className="px-4 py-4 border-t border-accent-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-accent-text-muted flex items-center justify-center text-accent text-sm font-semibold">
-            R
+          <div className="w-8 h-8 rounded-full bg-accent-text-muted flex items-center justify-center text-accent text-xs font-semibold shrink-0">
+            {staff?.display_name
+              ? staff.display_name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('')
+              : '?'}
           </div>
           <div className="text-xs flex-1 min-w-0">
-            <p className="text-accent-text font-medium">You</p>
-            <p className="text-accent-text-muted">Administrator</p>
+            <p className="text-accent-text font-medium truncate">{staff?.display_name ?? '—'}</p>
+            <p className="text-accent-text-muted truncate">{staff?.role ?? staff?.dashboard_role ?? ''}</p>
           </div>
           <button
             onClick={handleSignOut}
             title="Sign out"
-            className="text-accent-text-muted hover:text-accent-text transition-colors p-1 rounded"
+            className="text-accent-text-muted hover:text-accent-text transition-colors p-1 rounded shrink-0"
           >
             <LogOut size={14} />
           </button>

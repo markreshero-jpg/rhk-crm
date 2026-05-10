@@ -263,7 +263,7 @@ function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
   const [viewingPoId, setViewingPoId] = useState<string | null>(null)
   const [events, setEvents] = useState<JobScheduleEventWithRelations[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
-  const [loadingEvents, setLoadingEvents] = useState(false)
+  const [loadingEvents, setLoadingEvents] = useState(true)
   const [resorting, setResorting] = useState(false)
 
   const loadLines = useCallback(async () => {
@@ -279,8 +279,8 @@ function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
     getPOStatusForWOLines(l.map((x) => x.id)).then(setPoStatusMap)
   }, [workOrder.id])
 
-  const loadEvents = useCallback(async () => {
-    setLoadingEvents(true)
+  const loadEvents = useCallback(async (silent = false) => {
+    if (!silent) setLoadingEvents(true)
     const [evts, staffList] = await Promise.all([
       getScheduleEventsByWorkOrderId(workOrder.id),
       getActiveStaff(),
@@ -291,7 +291,7 @@ function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
   }, [workOrder.id])
 
   useEffect(() => { loadLines() }, [loadLines])
-  useEffect(() => { if (activeTab === 'events') loadEvents() }, [activeTab, loadEvents])
+  useEffect(() => { loadEvents() }, [loadEvents])
 
   async function handleResort() {
     if (!workOrder.sequence_id) return
@@ -311,7 +311,7 @@ function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
         })
       const unmatched = evts.filter((e) => !stepIndex.has((e.trade_type || '').toLowerCase()))
       await Promise.all([...matched, ...unmatched].map((e, i) => updateScheduleEvent(e.id, { sort: i + 1 })))
-      await loadEvents()
+      await loadEvents(true)
     } finally {
       setResorting(false)
     }
@@ -352,18 +352,18 @@ function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
       status: 'Unscheduled',
       sort: events.length + 1,
     })
-    await loadEvents()
+    await loadEvents(true)
   }
 
   async function handleUpdateEvent(id: string, patch: Partial<JobScheduleEventWithRelations>) {
     await updateScheduleEvent(id, patch)
-    await loadEvents()
+    await loadEvents(true)
   }
 
   async function handleDeleteEvent(id: string) {
     if (!confirm('Delete this schedule event?')) return
     await deleteScheduleEvent(id)
-    await loadEvents()
+    await loadEvents(true)
   }
 
   const groups = groupWorkOrderLines(lines)
@@ -397,7 +397,7 @@ function WorkOrderTabs({ workOrder, jobId, onUpdate }: {
         </div>
 
         {/* Tab content */}
-        <div className="bg-surface border border-border rounded-lg rounded-tl-none p-4">
+        <div className="bg-surface border border-border rounded-lg rounded-tl-none p-4 min-h-[16rem]">
 
           {/* ── Items tab ── */}
           {activeTab === 'items' && (

@@ -374,8 +374,10 @@ function StaffForm({ initialData, onSubmit, onCancel, submitLabel = 'Save' }: {
             className={inputCls}
           >
             <option value="office">Office — full business dashboard</option>
-            <option value="field">Field — daily tasks &amp; job clock</option>
             <option value="admin">Admin — same as office</option>
+            <option value="field">Field — daily tasks &amp; job clock</option>
+            <option value="foreman">Foreman — production board &amp; goods receiving</option>
+            <option value="factory">Factory — kiosk clock-on</option>
           </select>
           <p className="text-xs text-text-faint mt-1">Controls which dashboard this person sees when they log in.</p>
         </Field>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, BookTemplate, ChevronRight, ListOrdered } from 'lucide-react'
+import { Users, BookTemplate, ChevronRight, ListOrdered, Coffee } from 'lucide-react'
 
 const sections = [
   {
@@ -16,6 +16,7 @@ const sections = [
     items: [
       { label: 'Templates', href: '/settings/templates', icon: BookTemplate },
       { label: 'WO Sequences', href: '/settings/work-order-sequences', icon: ListOrdered },
+      { label: 'Break Schedule', href: '/settings/break-schedule', icon: Coffee },
     ],
   },
 ]

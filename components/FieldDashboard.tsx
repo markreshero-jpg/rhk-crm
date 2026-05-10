@@ -1,11 +1,18 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Timer, Play, Square, CheckCircle, MapPin } from 'lucide-react'
+import { Timer, Play, Square, CheckCircle, Briefcase, LogOut } from 'lucide-react'
 import { FieldScheduleEvent, getMyScheduleEvents, updateScheduleEvent, ScheduleEventStatus } from '@/lib/jobSchedule'
 import { ClockEvent, GeoCoords, clockIn, clockOut, getLatestClockEvent } from '@/lib/staffClock'
 import { JobTimeEntry, getActiveTimeEntry, startTimeEntry, stopTimeEntry } from '@/lib/jobTimeEntries'
 import { Staff } from '@/lib/staff'
+import {
+  WOSessionWithRelations, AvailableWO,
+  clockOntoWO, clockOffWO,
+  getActiveWOSession, getAvailableWorkOrders,
+  sessionDurationHours, fmtHours,
+} from '@/lib/woSessions'
+import { BreakSchedule, getBreakSchedules } from '@/lib/breakSchedules'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -26,14 +33,9 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
 }
 
-function elapsedLabel(startedAt: string) {
-  const ms = Date.now() - new Date(startedAt).getTime()
-  const h = Math.floor(ms / 3_600_000)
-  const m = Math.floor((ms % 3_600_000) / 60_000)
-  const s = Math.floor((ms % 60_000) / 1_000)
-  if (h > 0) return `${h}h ${m}m`
-  if (m > 0) return `${m}m ${s}s`
-  return `${s}s`
+function elapsedLabel(startedAt: string, breakSchedules: BreakSchedule[]) {
+  const hours = sessionDurationHours({ started_at: startedAt, ended_at: null }, breakSchedules)
+  return fmtHours(hours)
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -42,36 +44,60 @@ export default function FieldDashboard({ staff }: { staff: Staff }) {
   const [events, setEvents] = useState<FieldScheduleEvent[]>([])
   const [clockEvent, setClockEvent] = useState<ClockEvent | null>(null)
   const [activeEntry, setActiveEntry] = useState<JobTimeEntry | null>(null)
+  const [activeWOSession, setActiveWOSession] = useState<WOSessionWithRelations | null>(null)
+  const [availableWOs, setAvailableWOs] = useState<AvailableWO[]>([])
+  const [breakSchedules, setBreakSchedules] = useState<BreakSchedule[]>([])
+  const [showWOPicker, setShowWOPicker] = useState(false)
+  const [woClockBusy, setWOClockBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [elapsed, setElapsed] = useState('')
+  const [woElapsed, setWOElapsed] = useState('')
   const [siteClockBusy, setSiteClockBusy] = useState(false)
   const [geoStatus, setGeoStatus] = useState<'idle' | 'getting' | 'got' | 'denied'>('idle')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const woIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async () => {
-    const [evts, ce, ae] = await Promise.all([
+    const [evts, ce, ae, woSession, wos, breaks] = await Promise.all([
       getMyScheduleEvents(staff.id),
       getLatestClockEvent(staff.id),
       getActiveTimeEntry(staff.id),
+      getActiveWOSession(staff.id),
+      getAvailableWorkOrders(),
+      getBreakSchedules(),
     ])
     setEvents(evts)
     setClockEvent(ce)
     setActiveEntry(ae)
+    setActiveWOSession(woSession)
+    setAvailableWOs(wos)
+    setBreakSchedules(breaks)
     setLoading(false)
   }, [staff.id])
 
   useEffect(() => { load() }, [load])
 
-  // Tick elapsed timer when there's an active entry
+  // Tick elapsed timer for task entry
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current)
     if (!activeEntry) { setElapsed(''); return }
-    setElapsed(elapsedLabel(activeEntry.started_at))
+    setElapsed(elapsedLabel(activeEntry.started_at, breakSchedules))
     intervalRef.current = setInterval(() => {
-      setElapsed(elapsedLabel(activeEntry.started_at))
-    }, 1000)
+      setElapsed(elapsedLabel(activeEntry.started_at, breakSchedules))
+    }, 10_000)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [activeEntry])
+  }, [activeEntry, breakSchedules])
+
+  // Tick WO session timer
+  useEffect(() => {
+    if (woIntervalRef.current) clearInterval(woIntervalRef.current)
+    if (!activeWOSession) { setWOElapsed(''); return }
+    setWOElapsed(elapsedLabel(activeWOSession.started_at, breakSchedules))
+    woIntervalRef.current = setInterval(() => {
+      setWOElapsed(elapsedLabel(activeWOSession.started_at, breakSchedules))
+    }, 10_000)
+    return () => { if (woIntervalRef.current) clearInterval(woIntervalRef.current) }
+  }, [activeWOSession, breakSchedules])
 
   async function captureGPS(): Promise<GeoCoords | null> {
     return new Promise((resolve) => {
@@ -103,16 +129,36 @@ export default function FieldDashboard({ staff }: { staff: Staff }) {
     }
   }
 
+  async function handleClockOntoWO(woId: string) {
+    setWOClockBusy(true)
+    try {
+      await clockOntoWO(staff.id, woId)
+      setActiveWOSession(await getActiveWOSession(staff.id))
+      setShowWOPicker(false)
+    } finally {
+      setWOClockBusy(false)
+    }
+  }
+
+  async function handleClockOffWO() {
+    setWOClockBusy(true)
+    try {
+      await clockOffWO(staff.id)
+      setActiveWOSession(null)
+      setWOElapsed('')
+    } finally {
+      setWOClockBusy(false)
+    }
+  }
+
   async function handleJobClock(event: FieldScheduleEvent) {
     if (activeEntry?.job_schedule_event_id === event.id) {
       await stopTimeEntry(activeEntry.id)
       setActiveEntry(null)
       await load()
     } else {
-      // Auto-stop any other running entry first
       if (activeEntry) await stopTimeEntry(activeEntry.id)
       const entry = await startTimeEntry(staff.id, event.id)
-      // Auto-set status to In Progress
       if (event.status === 'Scheduled' || event.status === 'Unscheduled') {
         await updateScheduleEvent(event.id, { status: 'In Progress' })
       }
@@ -141,7 +187,6 @@ export default function FieldDashboard({ staff }: { staff: Staff }) {
   const isClockedIn = clockEvent?.type === 'in'
   const today = todayIso()
 
-  // Group events by date
   const byDate = new Map<string, FieldScheduleEvent[]>()
   for (const e of events) {
     const d = e.scheduled_date ?? '__unscheduled__'
@@ -159,7 +204,7 @@ export default function FieldDashboard({ staff }: { staff: Staff }) {
             style={{ backgroundColor: staff.colour || '#94a3b8' }} />
           <div>
             <p className="text-sm font-semibold leading-tight">{staff.display_name}</p>
-            <p className="text-[11px] text-accent-text-muted leading-tight">{staff.role || 'Field Staff'}</p>
+            <p className="text-[11px] text-accent-text/70 leading-tight">{staff.role || 'Field Staff'}</p>
           </div>
         </div>
 
@@ -182,12 +227,98 @@ export default function FieldDashboard({ staff }: { staff: Staff }) {
         </button>
       </div>
 
-      {/* Active job banner */}
+      {/* WO Clock section */}
+      <div className="px-4 pt-4 max-w-xl mx-auto">
+        {activeWOSession ? (
+          <div className="rounded-xl border border-accent bg-accent/5 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <Briefcase size={16} className="text-accent shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-text-subtle font-medium mb-0.5">Clocked onto WO</p>
+                  <p className="text-sm font-semibold text-text truncate">
+                    {activeWOSession.work_order_number && (
+                      <span className="font-mono text-text-muted mr-1.5">{activeWOSession.work_order_number}</span>
+                    )}
+                    {activeWOSession.work_order_title || 'Untitled'}
+                  </p>
+                  {activeWOSession.job_number && (
+                    <p className="text-xs text-text-muted mt-0.5">Job {activeWOSession.job_number}</p>
+                  )}
+                  <p className="text-xs text-accent font-semibold mt-1 tabular-nums">
+                    {woElapsed} logged
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleClockOffWO}
+                disabled={woClockBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-danger text-danger hover:bg-danger-bg transition-colors disabled:opacity-50 shrink-0"
+              >
+                <LogOut size={12} /> Clock Off
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowWOPicker(true)}
+            disabled={woClockBusy}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-sm font-medium text-text-muted hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+          >
+            <Briefcase size={15} />
+            Clock onto a Work Order
+          </button>
+        )}
+      </div>
+
+      {/* WO Picker modal */}
+      {showWOPicker && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowWOPicker(false)}>
+          <div className="bg-surface w-full max-w-xl rounded-t-2xl max-h-[75vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-3 border-b border-border shrink-0">
+              <div className="w-10 h-1 bg-border rounded-full mx-auto mb-4" />
+              <h3 className="text-base font-semibold text-text">Select Work Order</h3>
+              <p className="text-xs text-text-muted mt-0.5">Tap a work order to clock on. Any current session will close.</p>
+            </div>
+            <div className="overflow-y-auto flex-1 py-2">
+              {availableWOs.length === 0 ? (
+                <p className="text-sm text-text-subtle text-center py-8">No active work orders.</p>
+              ) : (
+                availableWOs.map((wo) => (
+                  <button
+                    key={wo.id}
+                    onClick={() => handleClockOntoWO(wo.id)}
+                    disabled={woClockBusy}
+                    className="w-full text-left px-5 py-3.5 hover:bg-surface-hover transition-colors border-b border-border/50 disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-mono text-text-muted">{wo.work_order_number || '—'}</span>
+                      {wo.job_number && <span className="text-[10px] text-text-faint">· Job {wo.job_number}</span>}
+                    </div>
+                    <p className="text-sm font-semibold text-text">{wo.title || 'Untitled'}</p>
+                    {wo.client_name && <p className="text-xs text-text-muted mt-0.5">{wo.client_name}</p>}
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-border shrink-0">
+              <button
+                onClick={() => setShowWOPicker(false)}
+                className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-text-muted hover:bg-surface-hover transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active task banner */}
       {activeEntry && (
-        <div className="bg-warning-bg border-b border-warning-border px-5 py-2.5 flex items-center gap-2">
+        <div className="bg-warning-bg border-b border-warning-border px-5 py-2 flex items-center gap-2 mt-3 max-w-xl mx-auto rounded-lg">
           <Play size={12} className="text-warning shrink-0" />
           <p className="text-xs text-warning font-medium flex-1 truncate">
-            Timer running · {elapsed}
+            Task timer running · {elapsed}
           </p>
         </div>
       )}
@@ -195,7 +326,7 @@ export default function FieldDashboard({ staff }: { staff: Staff }) {
       {/* Tasks */}
       <div className="px-4 pt-5 space-y-6 max-w-xl mx-auto">
         {events.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="text-center py-16">
             <CheckCircle size={32} className="mx-auto text-text-faint mb-3" />
             <p className="text-text-subtle text-sm">No tasks scheduled for the next 7 days.</p>
           </div>
@@ -265,7 +396,6 @@ function TaskCard({
     <div className={`rounded-xl border bg-surface p-4 space-y-3 transition-all ${
       isRunning ? 'border-warning shadow-sm' : 'border-border'
     } ${isDone ? 'opacity-60' : ''}`}>
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -291,7 +421,6 @@ function TaskCard({
         </span>
       </div>
 
-      {/* Hours + running timer */}
       <div className="flex items-center gap-4 text-xs text-text-muted">
         {event.estimated_hours != null && (
           <span>Est. {event.estimated_hours}h</span>
@@ -304,10 +433,8 @@ function TaskCard({
         )}
       </div>
 
-      {/* Buttons */}
       {!isDone && (
         <div className="flex items-center gap-2 pt-1">
-          {/* Job clock button */}
           <button
             onClick={() => wrap(() => onJobClock(event))}
             disabled={busy || (otherRunning && !isRunning)}
@@ -321,7 +448,6 @@ function TaskCard({
             {isRunning ? <><Square size={11} /> Stop</> : <><Play size={11} /> Start</>}
           </button>
 
-          {/* Mark done */}
           {(isToday || isRunning) && (
             <button
               onClick={() => wrap(() => onMarkDone(event))}

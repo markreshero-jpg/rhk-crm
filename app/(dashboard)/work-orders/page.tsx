@@ -293,26 +293,20 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
 
       {expanded && (
         <tr className="border-b border-border bg-surface-muted/30">
-          <td colSpan={7} className="px-6 py-2">
+          <td colSpan={7} className="px-3 py-1">
             {loadingExpand ? (
-              <p className="text-xs text-text-subtle py-2">Loading…</p>
+              <p className="text-xs text-text-subtle py-1">Loading…</p>
             ) : rows.length === 0 ? (
-              <p className="text-xs text-text-faint italic py-2">No items or events.</p>
+              <p className="text-xs text-text-faint italic py-1">No items or events.</p>
             ) : (
               <div className="divide-y divide-border">
                 {rows.map((row) => (
-                  <div key={row.key} className="flex items-center gap-6 py-2">
+                  <div key={row.key} className="flex items-center gap-3 py-0.5">
 
                     {/* Item column — fixed width, only visible on first event for each group */}
-                    <div className="w-56 shrink-0">
+                    <div className="w-44 shrink-0">
                       {row.showItem && row.group && (
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium leading-tight whitespace-nowrap shrink-0 ${stageBadgeStyles[row.group.lines[0]?.stage || ''] || 'bg-surface-muted text-text-muted'}`}>
-                            {row.group.lines[0]?.stage || 'Admin'}
-                          </span>
-                          <span className="text-text font-medium truncate">{row.group.name}</span>
-                          <span className="text-text-faint whitespace-nowrap shrink-0">{row.group.lines.length}L</span>
-                        </div>
+                        <span className="text-xs text-text font-medium truncate block">{row.group.name}</span>
                       )}
                     </div>
 

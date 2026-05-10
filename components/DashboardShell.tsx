@@ -9,6 +9,7 @@ import { getStaffByUserId } from '@/lib/staff'
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [isField, setIsField] = useState(false)
+  const [staffRole, setStaffRole] = useState<string | null>(null)
   const [roleLoaded, setRoleLoaded] = useState(false)
 
   useEffect(() => {
@@ -17,9 +18,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         const staff = await getStaffByUserId(session.user.id)
-        if (staff?.dashboard_role === 'field') {
-          setIsField(true)
-        }
+        if (staff?.dashboard_role === 'field') setIsField(true)
+        setStaffRole(staff?.dashboard_role ?? null)
       }
       setRoleLoaded(true)
     }
@@ -61,7 +61,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         lg:relative lg:translate-x-0 lg:transition-none
         ${open ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <Sidebar onClose={() => setOpen(false)} />
+        <Sidebar onClose={() => setOpen(false)} role={staffRole} />
       </div>
 
       {/* Main content */}
