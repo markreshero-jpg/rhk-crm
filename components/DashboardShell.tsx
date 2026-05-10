@@ -65,9 +65,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto min-w-0">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-surface sticky top-0 z-10">
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-surface shrink-0">
           <button
             onClick={() => setOpen(true)}
             className="text-text-muted hover:text-text transition-colors"
@@ -77,7 +77,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           </button>
           <span className="text-sm font-semibold text-text">RHK</span>
         </div>
-        {children}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {children}
+        </div>
       </main>
     </div>
   )

@@ -247,10 +247,11 @@ function WorkOrderRow({ wo, expanded, lines, events, loadingExpand, staff, onTog
     rows.push({ key: evt.id, showItem: false, group: null, event: evt })
   }
 
-  // Mark an event's date red if it falls before the previous event's date (skipping not-needed / undated events)
+  // Mark an event's date red if it falls before the previous event's date within the same work order item
   const dateErrors = new Set<string>()
   let prevDated: JobScheduleEventWithRelations | null = null
   for (const row of rows) {
+    if (row.showItem) prevDated = null  // new work order item group — reset sequence
     if (!row.event || row.event.not_needed || !row.event.scheduled_date) continue
     if (prevDated && row.event.scheduled_date < prevDated.scheduled_date!) {
       dateErrors.add(row.event.id)

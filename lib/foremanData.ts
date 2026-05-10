@@ -59,20 +59,23 @@ export type ForemanInstall = {
   scheduled_date: string | null
   start_time: string | null
   status: string
+  job_id: string | null
   job_number: string | null
   client_name: string | null
   staff_name: string | null
+  work_order_id: string | null
+  work_order_number: string | null
 }
 
 export async function getInstallsThisWeek(): Promise<ForemanInstall[]> {
   const today = new Date().toISOString().slice(0, 10)
   const end = new Date()
-  end.setDate(end.getDate() + 7)
+  end.setDate(end.getDate() + 14)
   const endIso = end.toISOString().slice(0, 10)
 
   const { data, error } = await supabase
     .from('job_schedule_events')
-    .select('id, title, scheduled_date, start_time, status, staff:staff(display_name), job:jobs(job_number, client:clients(name))')
+    .select('id, title, scheduled_date, start_time, status, job_id, work_order_id, staff:staff(display_name), job:jobs(job_number, client:clients(name)), work_order:work_orders(work_order_number)')
     .ilike('trade_type', 'install')
     .gte('scheduled_date', today)
     .lte('scheduled_date', endIso)
@@ -88,17 +91,68 @@ export async function getInstallsThisWeek(): Promise<ForemanInstall[]> {
     scheduled_date: e.scheduled_date,
     start_time: e.start_time,
     status: e.status,
+    job_id: e.job_id ?? null,
     job_number: e.job?.job_number ?? null,
     client_name: e.job?.client?.name ?? null,
     staff_name: e.staff?.display_name ?? null,
+    work_order_id: e.work_order_id ?? null,
+    work_order_number: e.work_order?.work_order_number ?? null,
   }))
 }
 
+export type StaffWOStatus = {
+  staff_id: string
+  staff_name: string
+  work_order_id: string | null
+  work_order_number: string | null
+  work_order_title: string | null
+  job_number: string | null
+  client_name: string | null
+  started_at: string | null
+}
+
+export async function getFieldStaffStatus(): Promise<StaffWOStatus[]> {
+  const [{ data: staff, error: sErr }, { data: sessions, error: sessErr }] = await Promise.all([
+    supabase
+      .from('staff')
+      .select('id, display_name')
+      .in('dashboard_role', ['field', 'factory'])
+      .eq('is_active', true)
+      .order('display_name', { ascending: true }),
+    supabase
+      .from('staff_wo_sessions')
+      .select('staff_id, work_order_id, started_at, work_order:work_orders(work_order_number, title, job:jobs(job_number, client:clients(name)))')
+      .is('ended_at', null),
+  ])
+  if (sErr) throw sErr
+  if (sessErr) throw sessErr
+
+  const sessionByStaff = new Map<string, typeof sessions[0]>()
+  for (const s of (sessions || [])) sessionByStaff.set(s.staff_id, s)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (staff || []).map((s: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sess = sessionByStaff.get(s.id) as any
+    return {
+      staff_id: s.id,
+      staff_name: s.display_name,
+      work_order_id: sess?.work_order_id ?? null,
+      work_order_number: sess?.work_order?.work_order_number ?? null,
+      work_order_title: sess?.work_order?.title ?? null,
+      job_number: sess?.work_order?.job?.job_number ?? null,
+      client_name: sess?.work_order?.job?.client?.name ?? null,
+      started_at: sess?.started_at ?? null,
+    }
+  })
+}
+
 export async function getForemanDashboardData(staffId: string) {
-  const [wos, installs, myTasks] = await Promise.all([
+  const [wos, installs, myTasks, staffStatus] = await Promise.all([
     getProductionBoard(),
     getInstallsThisWeek(),
     getMyScheduleEvents(staffId),
+    getFieldStaffStatus(),
   ])
-  return { wos, installs, myTasks }
+  return { wos, installs, myTasks, staffStatus }
 }
