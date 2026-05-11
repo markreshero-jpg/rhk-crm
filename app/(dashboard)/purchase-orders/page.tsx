@@ -621,7 +621,7 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
       )}
 
       {showSendModal && (
-        <SendModal po={po} supplier={sendSupplier} attachments={attachments} onClose={() => setShowSendModal(false)}
+        <SendModal po={po} supplier={sendSupplier} attachments={attachments} lines={lines} onClose={() => setShowSendModal(false)}
           onSent={async () => { setShowSendModal(false); await onReload(); await loadLines() }} />
       )}
 
@@ -636,10 +636,11 @@ function POPanel({ po, suppliers, onUpdate, onDelete, onReload }: {
 
 // ── Send Modal ────────────────────────────────────────────────────────────────
 
-function SendModal({ po, supplier, attachments, onClose, onSent }: {
+function SendModal({ po, supplier, attachments, lines, onClose, onSent }: {
   po: PurchaseOrder
   supplier: Supplier | null
   attachments: POAttachment[]
+  lines: PurchaseOrderLine[]
   onClose: () => void
   onSent: () => void
 }) {
@@ -663,6 +664,56 @@ function SendModal({ po, supplier, attachments, onClose, onSent }: {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  function handleOpenMailClient() {
+    const fmt = (n: number) => '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const subtotal = lines.reduce((s, l) => s + (l.qty || 0) * (l.unit_cost || 0), 0)
+    const gst      = lines.reduce((s, l) => s + (l.qty || 0) * (l.unit_cost || 0) * (l.gst_rate ?? 0.1), 0)
+    const total    = subtotal + gst
+
+    const lineRows = lines.map((l) => {
+      const parts = [`  ${l.item_code ? `[${l.item_code}] ` : ''}${l.item || 'Untitled'}`]
+      if (l.description) parts.push(`  ${l.description}`)
+      parts.push(`  Qty: ${l.qty ?? 0}  ×  ${fmt(l.unit_cost ?? 0)}  =  ${fmt((l.qty ?? 0) * (l.unit_cost ?? 0))} ex GST`)
+      return parts.join('\n')
+    }).join('\n\n')
+
+    const body = [
+      `Hi,`,
+      ``,
+      `Please find our purchase order below.`,
+      ``,
+      `PURCHASE ORDER: ${po.po_number || '—'}`,
+      `Date: ${po.order_date || '—'}`,
+      supplier ? `Supplier: ${supplier.company_name}` : null,
+      ``,
+      `─────────────────────────────`,
+      ``,
+      lineRows,
+      ``,
+      `─────────────────────────────`,
+      `Subtotal (ex GST): ${fmt(subtotal)}`,
+      `GST:               ${fmt(gst)}`,
+      `Total (inc GST):   ${fmt(total)}`,
+      po.notes ? `\nNotes: ${po.notes}` : null,
+      [po.delivery_name, po.delivery_suburb, po.delivery_postcode].filter(Boolean).length > 0
+        ? `\nDeliver to: ${[po.delivery_name, po.delivery_suburb, po.delivery_postcode].filter(Boolean).join(', ')}`
+        : null,
+      ``,
+      `Regards,`,
+      `RHK`,
+    ].filter((l) => l !== null).join('\n')
+
+    const params = new URLSearchParams()
+    if (cc.trim()) params.set('cc', cc.trim())
+    if (bcc.trim()) params.set('bcc', bcc.trim())
+    params.set('subject', subject)
+    params.set('body', body)
+
+    const toList = to.trim()
+    const mailto = `mailto:${encodeURIComponent(toList)}?${params.toString()}`
+    window.location.href = mailto
   }
 
   async function handleSend() {
@@ -751,11 +802,17 @@ function SendModal({ po, supplier, attachments, onClose, onSent }: {
         <div className="flex gap-3 px-6 py-4 border-t border-border shrink-0">
           <button type="button" onClick={handleSend} disabled={sending}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50 transition-colors">
-            <Send size={14} />{sending ? 'Sending…' : 'Send Purchase Order'}
+            <Send size={14} />{sending ? 'Sending…' : 'Send via Resend'}
+          </button>
+          <button type="button" onClick={handleOpenMailClient} disabled={sending}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm bg-surface border border-border text-text-muted rounded-md hover:bg-surface-hover disabled:opacity-50 transition-colors whitespace-nowrap">
+            <Mail size={14} /> Open in Mail App
           </button>
           <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-text-muted hover:text-text border border-border rounded-md hover:bg-surface-hover transition-colors">Cancel</button>
         </div>
-        <p className="text-[10px] text-text-faint pb-3 text-center">Sending will log this email and mark the PO as Sent.</p>
+        <p className="text-[10px] text-text-faint pb-3 text-center">
+          "Send via Resend" logs the email and marks the PO as Sent · "Open in Mail App" opens your default email client (attachments not included)
+        </p>
       </div>
     </div>
   )
