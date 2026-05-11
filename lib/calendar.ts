@@ -23,6 +23,7 @@ export type CalendarEvent = {
 }
 
 export type CalendarFilters = {
+  jobSearch: string
   staffIds: string[]
   tradeTypes: string[]
 }
@@ -65,9 +66,16 @@ export function fmtTradeType(type: string): string {
 }
 
 export function applyFilters(events: CalendarEvent[], f: CalendarFilters): CalendarEvent[] {
+  const q = f.jobSearch.trim().toLowerCase()
   return events.filter((e) => {
     if (f.staffIds.length && !f.staffIds.includes(e.staff_id ?? '__none__')) return false
     if (f.tradeTypes.length && !f.tradeTypes.includes((e.trade_type ?? '').toLowerCase())) return false
+    if (q) {
+      const matchJob    = (e.job_number ?? '').toLowerCase().includes(q)
+      const matchClient = (e.client_name ?? '').toLowerCase().includes(q)
+      const matchTitle  = (e.title ?? '').toLowerCase().includes(q)
+      if (!matchJob && !matchClient && !matchTitle) return false
+    }
     return true
   })
 }

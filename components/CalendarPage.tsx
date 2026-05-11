@@ -9,15 +9,24 @@ import {
 import { getActiveStaff, Staff } from '@/lib/staff'
 import { updateScheduleEvent } from '@/lib/jobSchedule'
 import FilterSidebar from './calendar/FilterSidebar'
+import DayView from './calendar/DayView'
 import MonthView from './calendar/MonthView'
 import WeekView from './calendar/WeekView'
 import ResourceView from './calendar/ResourceView'
 import TaskView from './calendar/TaskView'
 import EventModal from './calendar/EventModal'
 
-type ViewType = 'month' | 'week' | 'resource' | 'task'
+type ViewType = 'day' | 'week' | 'month' | 'resource' | 'task'
+
+const VIEW_LABELS: Record<ViewType, string> = {
+  day: 'Day', week: 'Week', month: 'Month', resource: 'Resource', task: 'Task',
+}
 
 function getDateRange(view: ViewType, anchor: Date): { from: string; to: string } {
+  if (view === 'day') {
+    const iso = toISO(anchor)
+    return { from: iso, to: iso }
+  }
   if (view === 'month') {
     const gridStart = startOfMonthGrid(anchor.getFullYear(), anchor.getMonth())
     return { from: toISO(gridStart), to: toISO(addDays(gridStart, 41)) }
@@ -27,6 +36,9 @@ function getDateRange(view: ViewType, anchor: Date): { from: string; to: string 
 }
 
 function formatLabel(view: ViewType, anchor: Date): string {
+  if (view === 'day') {
+    return anchor.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
   if (view === 'month') {
     return anchor.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
   }
@@ -40,7 +52,8 @@ function formatLabel(view: ViewType, anchor: Date): string {
 
 function navigate(view: ViewType, anchor: Date, dir: -1 | 1): Date {
   const d = new Date(anchor)
-  if (view === 'month') d.setMonth(d.getMonth() + dir)
+  if (view === 'day')   d.setDate(d.getDate() + dir)
+  else if (view === 'month') d.setMonth(d.getMonth() + dir)
   else d.setDate(d.getDate() + dir * 7)
   return d
 }
@@ -53,7 +66,7 @@ export default function CalendarPage() {
   const [loading, setLoading]         = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selected, setSelected]       = useState<CalendarEvent | null>(null)
-  const [filters, setFilters]         = useState<CalendarFilters>({ staffIds: [], tradeTypes: [] })
+  const [filters, setFilters]         = useState<CalendarFilters>({ jobSearch: '', staffIds: [], tradeTypes: [] })
 
   const { from, to } = useMemo(() => getDateRange(view, anchor), [view, anchor])
 
@@ -101,18 +114,28 @@ export default function CalendarPage() {
   }
 
   const filtered  = useMemo(() => applyFilters(events, filters), [events, filters])
-  const weekStart = (view === 'week' || view === 'resource' || view === 'task') ? startOfWeek(anchor) : null
+  const weekStart = (['week', 'resource', 'task'] as ViewType[]).includes(view) ? startOfWeek(anchor) : null
 
   return (
     <div className="flex h-full overflow-hidden">
-      {sidebarOpen && (
-        <FilterSidebar
-          staff={staff}
-          filters={filters}
-          onChange={setFilters}
-          onClose={() => setSidebarOpen(false)}
-        />
-      )}
+      {/* Sidebar + collapse tab */}
+      <div className="flex shrink-0 items-stretch">
+        <div className={`overflow-hidden transition-[width] duration-200 ${sidebarOpen ? 'w-52' : 'w-0'}`}>
+          <FilterSidebar
+            staff={staff}
+            filters={filters}
+            onChange={setFilters}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </div>
+        <button
+          onClick={() => setSidebarOpen((v) => !v)}
+          className="flex items-center justify-center w-3 bg-surface border-r border-border hover:bg-surface-hover transition-colors text-text-faint hover:text-text shrink-0"
+          title={sidebarOpen ? 'Collapse filters' : 'Expand filters'}
+        >
+          <ChevronLeft size={10} className={`transition-transform duration-200 ${sidebarOpen ? '' : 'rotate-180'}`} />
+        </button>
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Toolbar */}
@@ -126,15 +149,15 @@ export default function CalendarPage() {
           </button>
 
           <div className="flex bg-surface-muted rounded-md p-0.5">
-            {(['month', 'week', 'resource', 'task'] as ViewType[]).map((v) => (
+            {(['day', 'week', 'month', 'resource', 'task'] as ViewType[]).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-3 py-1 rounded text-sm capitalize transition-colors ${
+                className={`px-3 py-1 rounded text-sm transition-colors ${
                   view === v ? 'bg-surface text-text shadow-sm font-medium' : 'text-text-muted hover:text-text'
                 }`}
               >
-                {v === 'resource' ? 'Resource' : v === 'task' ? 'Task' : v.charAt(0).toUpperCase() + v.slice(1)}
+                {VIEW_LABELS[v]}
               </button>
             ))}
           </div>
@@ -157,11 +180,10 @@ export default function CalendarPage() {
 
         {/* View area */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {view === 'month' && (
-            <MonthView
+          {view === 'day' && (
+            <DayView
               events={filtered}
-              year={anchor.getFullYear()}
-              month={anchor.getMonth()}
+              date={anchor}
               onEventClick={setSelected}
               onEventMove={handleEventMove}
             />
@@ -170,6 +192,15 @@ export default function CalendarPage() {
             <WeekView
               events={filtered}
               weekStart={weekStart}
+              onEventClick={setSelected}
+              onEventMove={handleEventMove}
+            />
+          )}
+          {view === 'month' && (
+            <MonthView
+              events={filtered}
+              year={anchor.getFullYear()}
+              month={anchor.getMonth()}
               onEventClick={setSelected}
               onEventMove={handleEventMove}
             />
