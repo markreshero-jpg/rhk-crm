@@ -62,10 +62,8 @@ export async function deleteLabour(id: string): Promise<void> {
 }
 
 export async function renumberLabour(quoteItemId: string): Promise<void> {
-  const labour = await getLabourByQuoteItemId(quoteItemId)
-  for (let i = 0; i < labour.length; i++) {
-    await updateLabour(labour[i].id, { sort: i + 1 })
-  }
+  const { error } = await supabase.rpc('renumber_quote_item_labour', { p_quote_item_id: quoteItemId })
+  if (error) throw error
 }
 
 // ----- Calculation helpers -----

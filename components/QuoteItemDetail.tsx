@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, ListOrdered, ChevronLeft } from 'lucide-react'
+import { Plus, Trash2, ListOrdered, ChevronLeft, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import {
   getQuoteItemLinesByQuoteItemId,
@@ -29,6 +29,7 @@ import {
   QuoteItemLabour,
 } from '@/lib/quoteItemLabour'
 import { getAllSuppliers, Supplier } from '@/lib/suppliers'
+import { getSupplierItemByCode } from '@/lib/supplierItems'
 import { QuoteItemWithContext, QuoteItem } from '@/lib/quoteItems'
 import { getAllQuoteItemTemplates, importTemplateToIssue, QuoteItemTemplate } from '@/lib/quoteItemTemplates'
 import { duplicateQuoteItem } from '@/lib/quoteItems'
@@ -55,8 +56,11 @@ export default function QuoteItemDetail({
   const [focusLineId, setFocusLineId] = useState<string | null>(null)
   const [focusLabourId, setFocusLabourId] = useState<string | null>(null)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [showAiPaste, setShowAiPaste] = useState(false)
   const [writtenQuoteView, setWrittenQuoteView] = useState(false)
   const [filterNoEntries, setFilterNoEntries] = useState(false)
+  const [colWidths, setColWidths] = useState({ item: 144, description: 320, supplier: 128, code: 96 })
+  const resizeDrag = useRef<{ col: keyof typeof colWidths; startX: number; startWidth: number } | null>(null)
 
   const loadAll = useCallback(async () => {
     const [l, la, s] = await Promise.all([
@@ -74,6 +78,35 @@ export default function QuoteItemDetail({
     loadAll()
   }, [loadAll])
 
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      const drag = resizeDrag.current
+      if (!drag) return
+      const delta = e.clientX - drag.startX
+      const newWidth = Math.max(60, drag.startWidth + delta)
+      setColWidths(prev => ({ ...prev, [drag.col]: newWidth }))
+    }
+    function onMouseUp() {
+      if (!resizeDrag.current) return
+      resizeDrag.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  function startResize(col: keyof typeof colWidths, e: React.MouseEvent) {
+    e.preventDefault()
+    resizeDrag.current = { col, startX: e.clientX, startWidth: colWidths[col] }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
   async function handleAddLine() {
     const newLine = await createQuoteItemLine({
       quote_item_id: item.id,
@@ -84,6 +117,25 @@ export default function QuoteItemDetail({
       markup_percent: 50,
     })
     setFocusLineId(newLine.id)
+    await loadAll()
+  }
+
+  async function handleAiParsed(
+    parsed: { item?: string; item_code?: string; description?: string; price?: number | null },
+    insertAfterSort: number | null,
+  ) {
+    const newLine = await createQuoteItemLine({
+      quote_item_id: item.id,
+      item: parsed.item || '',
+      description: parsed.description || '',
+      item_code: parsed.item_code || '',
+      price: parsed.price ?? 0,
+      qty: 1,
+      markup_percent: 50,
+      ...(insertAfterSort != null ? { sort: insertAfterSort + 0.5 } : {}),
+    })
+    setFocusLineId(newLine.id)
+    setShowAiPaste(false)
     await loadAll()
   }
 
@@ -101,6 +153,22 @@ export default function QuoteItemDetail({
 
   async function handleUpdateLine(id: string, field: keyof QuoteItemLine, value: string | number | boolean | null) {
     await updateQuoteItemLine(id, { [field]: value })
+    await loadAll()
+  }
+
+  async function handleItemCodeSave(lineId: string, code: string, currentSupplierId: string | null) {
+    const match = code.trim() ? await getSupplierItemByCode(code.trim(), currentSupplierId) : null
+    if (match) {
+      await updateQuoteItemLine(lineId, {
+        item_code: code,
+        item: match.item ?? '',
+        description: match.description ?? '',
+        price: match.cost,
+        supplier_id: match.supplier_id,
+      })
+    } else {
+      await updateQuoteItemLine(lineId, { item_code: code })
+    }
     await loadAll()
   }
 
@@ -122,13 +190,23 @@ export default function QuoteItemDetail({
   }
 
   async function handleRenumberLines() {
-    await renumberQuoteItemLines(item.id)
-    await loadAll()
+    try {
+      await renumberQuoteItemLines(item.id)
+      await loadAll()
+    } catch (err) {
+      console.error('Renumber lines failed:', err)
+      alert('Renumber failed: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   async function handleRenumberLabour() {
-    await renumberLabour(item.id)
-    await loadAll()
+    try {
+      await renumberLabour(item.id)
+      await loadAll()
+    } catch (err) {
+      console.error('Renumber labour failed:', err)
+      alert('Renumber failed: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   // ----- Forecast calculations -----
@@ -315,6 +393,13 @@ export default function QuoteItemDetail({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setShowAiPaste(true)}
+                    className="flex items-center gap-1.5 text-xs text-text-muted bg-surface border border-border-strong px-3 py-1.5 rounded-md hover:bg-surface-hover"
+                  >
+                    <Sparkles size={12} /> AI Paste
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleAddLine}
                     className="flex items-center gap-1.5 text-xs text-accent-text bg-accent px-3 py-1.5 rounded-md hover:bg-accent-hover"
                   >
@@ -332,28 +417,61 @@ export default function QuoteItemDetail({
               </div>
 
               <div className="border border-border rounded-md overflow-auto max-h-[34rem]">
-                <table className="w-full min-w-[1100px]">
+                <table className="w-full table-fixed [&_td]:border-r [&_td]:border-border [&_th]:border-r [&_th]:border-border" style={{ minWidth: 544 + colWidths.item + colWidths.description + (writtenQuoteView ? 0 : colWidths.supplier + colWidths.code) }}>
+                  <colgroup>
+                    <col style={{ width: 32 }} />
+                    <col style={{ width: colWidths.item }} />
+                    <col style={{ width: colWidths.description }} />
+                    {writtenQuoteView ? (
+                      <col />
+                    ) : (
+                      <>
+                        <col style={{ width: colWidths.supplier }} />
+                        <col style={{ width: colWidths.code }} />
+                        <col style={{ width: 80 }} />
+                        <col style={{ width: 40 }} />
+                        <col style={{ width: 80 }} />
+                        <col style={{ width: 64 }} />
+                        <col style={{ width: 80 }} />
+                        <col style={{ width: 56 }} />
+                        <col style={{ width: 80 }} />
+                      </>
+                    )}
+                    <col style={{ width: 32 }} />
+                  </colgroup>
                   <thead className="bg-surface-muted border-b border-border sticky top-0 z-10">
                     <tr className="text-left text-[10px] uppercase tracking-wider text-text-subtle">
-                      <th className="px-1.5 py-1 font-medium w-14">Sort</th>
-                      <th className="px-1.5 py-1 font-medium w-40">Item</th>
-                      <th className="px-1.5 py-1 font-medium w-56">Description</th>
+                      <th className="px-1.5 py-1 font-medium">Sort</th>
+                      <th className="px-1.5 py-1 font-medium relative">
+                        Item
+                        <div onMouseDown={(e) => startResize('item', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 z-10" />
+                      </th>
+                      <th className="px-1.5 py-1 font-medium relative">
+                        Description
+                        <div onMouseDown={(e) => startResize('description', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 z-10" />
+                      </th>
                       {writtenQuoteView ? (
                         <th className="px-1.5 py-1 font-medium">Written Quote</th>
                       ) : (
                         <>
-                          <th className="px-1.5 py-1 font-medium w-32">Supplier</th>
-                          <th className="px-1.5 py-1 font-medium w-24">Code</th>
-                          <th className="px-1.5 py-1 font-medium w-24 text-right">Price</th>
-                          <th className="px-1.5 py-1 font-medium w-16 text-right">Qty</th>
-                          <th className="px-1.5 py-1 font-medium w-20 text-right">Sub Total</th>
-                          <th className="px-1.5 py-1 font-medium w-16 text-right">Markup</th>
-                          <th className="px-1.5 py-1 font-medium w-24 text-right">Sub + Mup</th>
-                          <th className="px-1.5 py-1 font-medium w-20 text-right">GST</th>
-                          <th className="px-1.5 py-1 font-medium w-24 text-right">Total</th>
+                          <th className="px-1.5 py-1 font-medium relative">
+                            Supplier
+                            <div onMouseDown={(e) => startResize('supplier', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 z-10" />
+                          </th>
+                          <th className="px-1.5 py-1 font-medium relative">
+                            Code
+                            <div onMouseDown={(e) => startResize('code', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 z-10" />
+                          </th>
+                          <th className="px-1.5 py-1 font-medium text-right">Price</th>
+                          <th className="px-1.5 py-1 font-medium text-right">Qty</th>
+                          <th className="px-1.5 py-1 font-medium text-right">Sub Total</th>
+                          <th className="px-1.5 py-1 font-medium text-right">Markup</th>
+                          <th className="px-1.5 py-1 font-medium text-right">Sub + Mup</th>
+                          <th className="px-1.5 py-1 font-medium text-right">GST</th>
+                          <th className="px-1.5 py-1 font-medium text-right">Total</th>
                         </>
                       )}
-                      <th className="px-1.5 py-1 font-medium w-8"></th>
+                      <th className="px-1.5 py-1 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border [&_tr:nth-child(even)]:bg-surface-muted/40">
@@ -372,6 +490,7 @@ export default function QuoteItemDetail({
                           shouldFocus={focusLineId === line.id}
                           onFocused={() => setFocusLineId(null)}
                           onUpdate={handleUpdateLine}
+                          onItemCodeSave={handleItemCodeSave}
                           onDelete={() => handleDeleteLine(line)}
                           writtenQuoteView={writtenQuoteView}
                         />
@@ -496,6 +615,13 @@ export default function QuoteItemDetail({
           </>
         )}
       </div>
+
+      {showAiPaste && (
+        <SupplierPasteModal
+          onParsed={handleAiParsed}
+          onClose={() => setShowAiPaste(false)}
+        />
+      )}
     </div>
   )
 }
@@ -530,6 +656,7 @@ function LineRow({
   shouldFocus,
   onFocused,
   onUpdate,
+  onItemCodeSave,
   onDelete,
   writtenQuoteView,
 }: {
@@ -538,10 +665,11 @@ function LineRow({
   shouldFocus: boolean
   onFocused: () => void
   onUpdate: (id: string, field: keyof QuoteItemLine, value: string | number | boolean | null) => Promise<void>
+  onItemCodeSave: (lineId: string, code: string, currentSupplierId: string | null) => Promise<void>
   onDelete: () => void
   writtenQuoteView: boolean
 }) {
-  const itemRef = useRef<HTMLInputElement>(null)
+  const itemRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (shouldFocus && itemRef.current) {
@@ -562,10 +690,10 @@ function LineRow({
           <InlineNumberField value={line.sort} onSave={(v) => onUpdate(line.id, 'sort', v)} className="font-mono text-text-faint" />
         </td>
         <td className="px-1 py-0">
-          <InlineTextField ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="font-medium text-text" />
+          <InlineTextArea ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="text-text" />
         </td>
         <td className="px-1 py-0">
-          <InlineTextField value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
+          <InlineTextArea value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
         </td>
         <td className="px-1 py-0">
           <InlineTextField value={line.written_quote_text || ''} onSave={(v) => onUpdate(line.id, 'written_quote_text', v)} placeholder="Written quote brief..." className="text-text-muted" />
@@ -585,10 +713,10 @@ function LineRow({
         <InlineNumberField value={line.sort} onSave={(v) => onUpdate(line.id, 'sort', v)} className="font-mono text-text-faint" />
       </td>
       <td className="px-1 py-0">
-        <InlineTextField ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="font-medium text-text" />
+        <InlineTextArea ref={itemRef} value={line.item || ''} onSave={(v) => onUpdate(line.id, 'item', v)} placeholder="item" className="text-text" />
       </td>
       <td className="px-1 py-0">
-        <InlineTextField value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
+        <InlineTextArea value={line.description || ''} onSave={(v) => onUpdate(line.id, 'description', v)} placeholder="description" className="text-text-muted" />
       </td>
       <td className="px-1 py-0">
         <select
@@ -603,7 +731,7 @@ function LineRow({
         </select>
       </td>
       <td className="px-1 py-0">
-        <InlineTextField value={line.item_code || ''} onSave={(v) => onUpdate(line.id, 'item_code', v)} className="text-text-muted text-xs font-mono" />
+        <InlineTextField value={line.item_code || ''} onSave={(v) => onItemCodeSave(line.id, v, line.supplier_id ?? null)} className="text-text-muted text-xs font-mono" />
       </td>
       <td className="px-1 py-0">
         <InlineNumberField value={line.price} onSave={(v) => onUpdate(line.id, 'price', v)} className="text-right text-text" widthClass="w-full" decimals={2} />
@@ -829,6 +957,100 @@ function RoomTemplatePicker({
   )
 }
 
+// ===== AI supplier paste modal =====
+
+function SupplierPasteModal({
+  onParsed,
+  onClose,
+}: {
+  onParsed: (parsed: { item?: string; item_code?: string; description?: string; price?: number | null }, insertAfterSort: number | null) => void
+  onClose: () => void
+}) {
+  const [text, setText] = useState('')
+  const [insertAfter, setInsertAfter] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    textareaRef.current?.focus()
+  }, [])
+
+  async function handleParse() {
+    if (!text.trim()) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/parse-supplier-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      if (!res.ok) throw new Error('Parse failed')
+      const data = await res.json()
+      const sortNum = insertAfter.trim() !== '' ? parseFloat(insertAfter) : null
+      onParsed(data, isNaN(sortNum as number) ? null : sortNum)
+    } catch {
+      setError('Could not parse the text. Try including more detail.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-lg shadow-xl w-[480px]" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-medium text-text flex items-center gap-1.5">
+            <Sparkles size={14} /> AI Paste from Supplier
+          </h3>
+          <p className="text-xs text-text-subtle mt-0.5">Paste any product text — code, description, price — and it will fill the line.</p>
+        </div>
+        <div className="p-4 space-y-3">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleParse()
+              else if (e.key === 'Escape') onClose()
+            }}
+            placeholder="Paste supplier product text here…"
+            rows={5}
+            className="w-full px-3 py-2 text-sm border border-border rounded-md bg-surface-muted focus:outline-none focus:border-accent resize-none"
+          />
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-text-subtle whitespace-nowrap">Insert after line:</label>
+            <input
+              type="number"
+              value={insertAfter}
+              onChange={(e) => setInsertAfter(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleParse() }}
+              placeholder="leave blank to add at end"
+              className="flex-1 px-2.5 py-1 text-xs border border-border rounded-md bg-surface focus:outline-none focus:border-accent"
+            />
+          </div>
+          {error && <p className="text-xs text-danger">{error}</p>}
+        </div>
+        <div className="px-5 py-3 border-t border-border flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs text-text-muted hover:text-text">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleParse}
+            disabled={!text.trim() || loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-accent-text rounded-md hover:bg-accent-hover disabled:opacity-50"
+          >
+            <Sparkles size={11} />
+            {loading ? 'Parsing…' : 'Add Line (⌘↵)'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ===== Inline editing primitives =====
 
 const InlineTextField = function InlineTextField({
@@ -871,36 +1093,53 @@ const InlineTextField = function InlineTextField({
         }
       }}
       placeholder={placeholder}
-      className={`w-full text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${inputClass} ${className}`}
+      className={`w-full text-[13px] bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${inputClass} ${className}`}
     />
   )
 }
 
 function InlineTextArea({
+  ref: externalRef,
   value,
   onSave,
   placeholder,
   className = '',
 }: {
+  ref?: React.RefObject<HTMLTextAreaElement | null>
   value: string
   onSave: (value: string) => void
   placeholder?: string
   className?: string
 }) {
   const [local, setLocal] = useState(value)
+  const internalRef = useRef<HTMLTextAreaElement>(null)
+  const ref = externalRef ?? internalRef
+
   useEffect(() => { setLocal(value) }, [value])
+
+  function resize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }
+
+  useLayoutEffect(() => {
+    if (ref.current) resize(ref.current)
+  }, [value, local])
+
   function commit() { if (local !== value) onSave(local) }
+
   return (
     <textarea
+      ref={ref}
       value={local}
-      onChange={(e) => setLocal(e.target.value)}
+      onChange={(e) => { setLocal(e.target.value); resize(e.target) }}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Escape') { setLocal(value); e.currentTarget.blur() }
       }}
       placeholder={placeholder}
-      rows={2}
-      className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none resize-none ${className}`}
+      rows={1}
+      className={`w-full px-1.5 py-0.5 text-[13px] leading-snug bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none resize-none overflow-hidden ${className}`}
     />
   )
 }
@@ -956,7 +1195,7 @@ function InlineNumberField({
             e.currentTarget.blur()
           }
         }}
-        className={`w-full px-1.5 py-0.5 text-sm bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
+        className={`w-full px-1.5 py-0.5 text-[13px] bg-transparent border border-transparent rounded focus:bg-surface focus:border-accent focus:outline-none ${className}`}
       />
       {suffix && <span className="text-xs text-text-faint ml-0.5">{suffix}</span>}
     </div>

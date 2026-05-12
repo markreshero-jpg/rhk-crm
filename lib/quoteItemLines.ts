@@ -68,10 +68,8 @@ export async function deleteQuoteItemLine(id: string): Promise<void> {
 }
 
 export async function renumberQuoteItemLines(quoteItemId: string): Promise<void> {
-  const lines = await getQuoteItemLinesByQuoteItemId(quoteItemId)
-  for (let i = 0; i < lines.length; i++) {
-    await updateQuoteItemLine(lines[i].id, { sort: i + 1 })
-  }
+  const { error } = await supabase.rpc('renumber_quote_item_lines', { p_quote_item_id: quoteItemId })
+  if (error) throw error
 }
 
 // ----- Calculation helpers -----
