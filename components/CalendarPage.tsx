@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import {
   getCalendarEvents, applyFilters, startOfWeek, addDays, toISO,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/calendar'
 import { getActiveStaff, Staff } from '@/lib/staff'
 import { updateScheduleEvent } from '@/lib/jobSchedule'
+import { supabase } from '@/lib/supabase'
 import FilterSidebar from './calendar/FilterSidebar'
 import DayView from './calendar/DayView'
 import MonthView from './calendar/MonthView'
@@ -74,14 +75,31 @@ export default function CalendarPage() {
     getActiveStaff().then(setStaff).catch(console.error)
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
+  const rangeRef = useRef({ from, to })
+  rangeRef.current = { from, to }
+
+  const fetchEvents = useCallback(() => {
+    const { from, to } = rangeRef.current
     setLoading(true)
     getCalendarEvents(from, to)
-      .then((evts) => { if (!cancelled) { setEvents(evts); setLoading(false) } })
-      .catch(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [from, to])
+      .then((evts) => { setEvents(evts); setLoading(false) })
+      .catch(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    fetchEvents()
+  }, [from, to, fetchEvents])
+
+  useEffect(() => {
+    const channelName = `calendar-${Math.random().toString(36).slice(2)}`
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_schedule_events' }, fetchEvents)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleEventMove(
     eventId: string,
