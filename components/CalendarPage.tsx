@@ -23,7 +23,7 @@ const VIEW_LABELS: Record<ViewType, string> = {
   day: 'Day', week: 'Week', month: 'Month', resource: 'Resource', task: 'Task',
 }
 
-function getDateRange(view: ViewType, anchor: Date): { from: string; to: string } {
+function getDateRange(view: ViewType, anchor: Date, numDays: number): { from: string; to: string } {
   if (view === 'day') {
     const iso = toISO(anchor)
     return { from: iso, to: iso }
@@ -33,10 +33,11 @@ function getDateRange(view: ViewType, anchor: Date): { from: string; to: string 
     return { from: toISO(gridStart), to: toISO(addDays(gridStart, 41)) }
   }
   const ws = startOfWeek(anchor)
-  return { from: toISO(ws), to: toISO(addDays(ws, 6)) }
+  const span = (view === 'resource' || view === 'task') ? numDays : 7
+  return { from: toISO(ws), to: toISO(addDays(ws, span - 1)) }
 }
 
-function formatLabel(view: ViewType, anchor: Date): string {
+function formatLabel(view: ViewType, anchor: Date, numDays: number): string {
   if (view === 'day') {
     return anchor.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
@@ -44,23 +45,26 @@ function formatLabel(view: ViewType, anchor: Date): string {
     return anchor.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
   }
   const ws = startOfWeek(anchor)
-  const we = addDays(ws, 6)
+  const span = (view === 'resource' || view === 'task') ? numDays : 7
+  const we = addDays(ws, span - 1)
   if (ws.getMonth() === we.getMonth()) {
     return `${ws.getDate()}–${we.getDate()} ${ws.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}`
   }
   return `${ws.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} – ${we.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
 }
 
-function navigate(view: ViewType, anchor: Date, dir: -1 | 1): Date {
+function navigate(view: ViewType, anchor: Date, dir: -1 | 1, numDays: number): Date {
   const d = new Date(anchor)
-  if (view === 'day')   d.setDate(d.getDate() + dir)
+  if (view === 'day') d.setDate(d.getDate() + dir)
   else if (view === 'month') d.setMonth(d.getMonth() + dir)
+  else if (view === 'resource' || view === 'task') d.setDate(d.getDate() + dir * numDays)
   else d.setDate(d.getDate() + dir * 7)
   return d
 }
 
 export default function CalendarPage() {
   const [view, setView]               = useState<ViewType>('week')
+  const [numDays, setNumDays]         = useState<7 | 14 | 21>(7)
   const [anchor, setAnchor]           = useState<Date>(new Date())
   const [events, setEvents]           = useState<CalendarEvent[]>([])
   const [staff, setStaff]             = useState<Staff[]>([])
@@ -69,7 +73,7 @@ export default function CalendarPage() {
   const [selected, setSelected]       = useState<CalendarEvent | null>(null)
   const [filters, setFilters]         = useState<CalendarFilters>({ jobSearch: '', staffIds: [], tradeTypes: [] })
 
-  const { from, to } = useMemo(() => getDateRange(view, anchor), [view, anchor])
+  const { from, to } = useMemo(() => getDateRange(view, anchor, numDays), [view, anchor, numDays])
 
   useEffect(() => {
     getActiveStaff().then(setStaff).catch(console.error)
@@ -180,19 +184,33 @@ export default function CalendarPage() {
             ))}
           </div>
 
+          {(view === 'resource' || view === 'task') && (
+            <div className="flex bg-surface-muted rounded-md p-0.5">
+              {([7, 14, 21] as const).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setNumDays(n)}
+                  className={`px-2.5 py-1 rounded text-xs transition-colors ${numDays === n ? 'bg-surface text-text shadow-sm font-medium' : 'text-text-muted hover:text-text'}`}
+                >
+                  {n}d
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-1">
-            <button onClick={() => setAnchor((a) => navigate(view, a, -1))} className="p-1.5 rounded hover:bg-surface-hover transition-colors text-text-muted hover:text-text">
+            <button onClick={() => setAnchor((a) => navigate(view, a, -1, numDays))} className="p-1.5 rounded hover:bg-surface-hover transition-colors text-text-muted hover:text-text">
               <ChevronLeft size={16} />
             </button>
             <button onClick={() => setAnchor(new Date())} className="px-2.5 py-1 text-xs rounded border border-border hover:bg-surface-hover transition-colors text-text-muted">
               Today
             </button>
-            <button onClick={() => setAnchor((a) => navigate(view, a, 1))} className="p-1.5 rounded hover:bg-surface-hover transition-colors text-text-muted hover:text-text">
+            <button onClick={() => setAnchor((a) => navigate(view, a, 1, numDays))} className="p-1.5 rounded hover:bg-surface-hover transition-colors text-text-muted hover:text-text">
               <ChevronRight size={16} />
             </button>
           </div>
 
-          <h2 className="text-sm font-semibold text-text">{formatLabel(view, anchor)}</h2>
+          <h2 className="text-sm font-semibold text-text">{formatLabel(view, anchor, numDays)}</h2>
           {loading && <span className="ml-auto text-xs text-text-faint">Loading…</span>}
         </div>
 
@@ -228,6 +246,7 @@ export default function CalendarPage() {
               events={filtered}
               staff={staff}
               weekStart={weekStart}
+              numDays={numDays}
               staffFilterIds={filters.staffIds}
               onEventClick={setSelected}
               onEventMove={handleEventMove}
@@ -237,6 +256,7 @@ export default function CalendarPage() {
             <TaskView
               events={filtered}
               weekStart={weekStart}
+              numDays={numDays}
               onEventClick={setSelected}
               onEventMove={handleEventMove}
             />

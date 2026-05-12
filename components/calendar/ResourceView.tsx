@@ -5,7 +5,6 @@ import type { CalendarEvent } from '@/lib/calendar'
 import type { Staff } from '@/lib/staff'
 import { eventColour, addDays, toISO, fmtTime } from '@/lib/calendar'
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function EventChip({
   event,
@@ -46,6 +45,7 @@ export default function ResourceView({
   events,
   staff,
   weekStart,
+  numDays = 7,
   staffFilterIds,
   onEventClick,
   onEventMove,
@@ -53,12 +53,13 @@ export default function ResourceView({
   events: CalendarEvent[]
   staff: Staff[]
   weekStart: Date
+  numDays?: number
   staffFilterIds: string[]
   onEventClick: (e: CalendarEvent) => void
   onEventMove: (eventId: string, newDate: string, newStaffId?: string | null) => void
 }) {
   const today = toISO(new Date())
-  const days  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const days  = Array.from({ length: numDays }, (_, i) => addDays(weekStart, i))
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
   // dropTarget: "date:staffId" or "date:__unassigned__"
@@ -122,12 +123,12 @@ export default function ResourceView({
             <th className="px-4 py-3 text-left text-[10px] uppercase tracking-widest text-text-faint font-medium border-b border-r border-border bg-surface">
               Staff
             </th>
-            {days.map((d, i) => {
+            {days.map((d) => {
               const iso = toISO(d)
               const isToday = iso === today
               return (
                 <th key={iso} className="px-3 py-3 border-b border-r border-border bg-surface font-normal">
-                  <p className="text-[10px] uppercase tracking-widest text-text-faint">{WEEKDAYS[i]}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-text-faint">{d.toLocaleDateString('en-AU', { weekday: 'short' })}</p>
                   <p className={`text-sm font-semibold mt-0.5 ${isToday ? 'text-accent' : 'text-text-muted'}`}>
                     {d.getDate()} {d.toLocaleDateString('en-AU', { month: 'short' })}
                   </p>

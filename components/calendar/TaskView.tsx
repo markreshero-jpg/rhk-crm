@@ -17,7 +17,6 @@ function sortTradeTypes(types: string[]): string[] {
   return known
 }
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 type OnEventMove = (
   eventId: string,
@@ -68,16 +67,18 @@ function EventChip({
 export default function TaskView({
   events,
   weekStart,
+  numDays = 7,
   onEventClick,
   onEventMove,
 }: {
   events: CalendarEvent[]
   weekStart: Date
+  numDays?: number
   onEventClick: (e: CalendarEvent) => void
   onEventMove: OnEventMove
 }) {
   const today = toISO(new Date())
-  const days  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const days  = Array.from({ length: numDays }, (_, i) => addDays(weekStart, i))
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)  // "date:tradeType"
@@ -143,12 +144,12 @@ export default function TaskView({
             <th className="px-4 py-3 text-left text-[10px] uppercase tracking-widest text-text-faint font-medium border-b border-r border-border bg-surface">
               Task Type
             </th>
-            {days.map((d, i) => {
+            {days.map((d) => {
               const iso = toISO(d)
               const isToday = iso === today
               return (
                 <th key={iso} className="px-3 py-3 border-b border-r border-border bg-surface font-normal">
-                  <p className="text-[10px] uppercase tracking-widest text-text-faint">{WEEKDAYS[i]}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-text-faint">{d.toLocaleDateString('en-AU', { weekday: 'short' })}</p>
                   <p className={`text-sm font-semibold mt-0.5 ${isToday ? 'text-accent' : 'text-text-muted'}`}>
                     {d.getDate()} {d.toLocaleDateString('en-AU', { month: 'short' })}
                   </p>
