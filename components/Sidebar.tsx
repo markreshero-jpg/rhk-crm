@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Briefcase, Users, Calendar, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut, Timer } from 'lucide-react'
+import { Briefcase, Users, Calendar, Settings, Truck, LayoutDashboard, ShoppingCart, ClipboardList, Sun, Moon, LogOut, Timer, ChevronLeft } from 'lucide-react'
 import { useTheme } from '@/lib/useTheme'
 import { createClient } from '@/lib/supabase-browser'
 import { getStaffByUserId, Staff } from '@/lib/staff'
@@ -20,7 +20,7 @@ const allNavItems = [
   { href: '/clock', label: 'Clock In/Out', icon: Timer, roles: ['admin', 'office'] },
 ]
 
-export default function Sidebar({ onClose, role }: { onClose?: () => void; role?: string | null }) {
+export default function Sidebar({ onClose, role, onCollapse }: { onClose?: () => void; role?: string | null; onCollapse?: () => void }) {
   const navItems = allNavItems.filter((item) => !role || item.roles.includes(role))
   const pathname = usePathname()
   const router = useRouter()
@@ -47,7 +47,16 @@ export default function Sidebar({ onClose, role }: { onClose?: () => void; role?
   }
 
   return (
-    <aside className="w-60 bg-accent text-accent-text flex flex-col h-screen">
+    <aside className="relative w-60 bg-accent text-accent-text flex flex-col h-screen">
+      {onCollapse && (
+        <button
+          onClick={onCollapse}
+          className="hidden lg:flex absolute -right-6 top-3 z-10 w-6 h-8 bg-accent items-center justify-center rounded-r-md text-accent-text-muted hover:text-accent-text transition-colors"
+          aria-label="Collapse sidebar"
+        >
+          <ChevronLeft size={14} />
+        </button>
+      )}
       <div className="px-5 py-5 border-b border-accent-border">
         <Image
           src="/resident-hero-logo.png"

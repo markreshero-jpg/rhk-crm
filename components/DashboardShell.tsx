@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, ChevronRight } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { createClient } from '@/lib/supabase-browser'
 import { getStaffByUserId } from '@/lib/staff'
@@ -11,6 +11,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [isField, setIsField] = useState(false)
   const [staffRole, setStaffRole] = useState<string | null>(null)
   const [roleLoaded, setRoleLoaded] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     async function checkRole() {
@@ -57,15 +58,27 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-30 transition-transform duration-300 ease-in-out
-        lg:relative lg:translate-x-0 lg:transition-none
+        fixed inset-y-0 left-0 z-30 transition-all duration-300 ease-in-out
+        lg:relative lg:translate-x-0
         ${open ? 'translate-x-0' : '-translate-x-full'}
+        ${sidebarCollapsed ? 'lg:w-0 lg:overflow-hidden' : ''}
       `}>
-        <Sidebar onClose={() => setOpen(false)} role={staffRole} />
+        <Sidebar onClose={() => setOpen(false)} role={staffRole} onCollapse={() => setSidebarCollapsed(true)} />
       </div>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden relative">
+        {/* Expand tab — desktop only, visible when sidebar is collapsed */}
+        {sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="hidden lg:flex absolute left-0 top-3 z-20 items-center justify-center w-6 h-8 bg-accent text-accent-text-muted hover:text-accent-text rounded-r-md transition-colors"
+            aria-label="Expand sidebar"
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
+
         {/* Mobile top bar */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-surface shrink-0">
           <button

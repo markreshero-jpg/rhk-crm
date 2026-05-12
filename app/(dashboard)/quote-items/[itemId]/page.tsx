@@ -76,7 +76,7 @@ export default function QuoteItemPage({
   }
 
   return (
-    <div className="p-10 max-w-[1400px]">
+    <div className="p-10 max-w-[1800px]">
       <QuoteItemDetail
         item={item}
         onUpdateField={handleUpdateField}
