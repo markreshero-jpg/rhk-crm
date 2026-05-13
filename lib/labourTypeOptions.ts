@@ -18,7 +18,6 @@ export const LABOUR_TYPE_OPTIONS = [
     'Make & Install LED Strip',
     'CNC Machine Time',
     'Pack Hardware',
-    'Dress Timber',
     'Laminate and file Edges',
     'Living Away Allowance',
     'Template Allowance',
