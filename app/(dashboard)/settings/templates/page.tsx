@@ -8,6 +8,8 @@ import StandaloneLineTemplatesList from '@/components/templates/StandaloneLineTe
 import StandaloneLabourTemplatesList from '@/components/templates/StandaloneLabourTemplatesList'
 import TermsTemplatesList from '@/components/templates/TermsTemplatesList'
 import LineStatusesList from '@/components/templates/LineStatusesList'
+import CabinetLibraryManager from '@/components/kitchen/CabinetLibraryManager'
+import KitchenSettingsPanel from '@/components/kitchen/KitchenSettingsPanel'
 
 export default function SettingsTemplatesPage() {
   return (
@@ -27,6 +29,8 @@ function SettingsTemplatesContent() {
     { id: 'labour',    label: 'Labour Lines' },
     { id: 'terms',     label: 'Terms & Conditions' },
     { id: 'statuses',  label: 'Work Order Statuses' },
+    { id: 'cabinets',  label: 'Cabinet Library' },
+    { id: 'kitchen',   label: 'Kitchen Settings' },
   ]
 
   return (
@@ -43,6 +47,8 @@ function SettingsTemplatesContent() {
         {activeTab === 'labour'    && <StandaloneLabourTemplatesList />}
         {activeTab === 'terms'     && <TermsTemplatesList />}
         {activeTab === 'statuses'  && <LineStatusesList />}
+        {activeTab === 'cabinets'  && <CabinetLibraryManager />}
+        {activeTab === 'kitchen'   && <KitchenSettingsPanel />}
       </Tabs>
     </div>
   )

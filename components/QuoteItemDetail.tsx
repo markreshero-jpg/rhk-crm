@@ -35,6 +35,8 @@ import { getAllQuoteItemTemplates, importTemplateToIssue, QuoteItemTemplate } fr
 import { duplicateQuoteItem } from '@/lib/quoteItems'
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format'
 import LabourTypeInput from '@/components/LabourTypeInput'
+// KITCHEN ESTIMATOR — remove this import + the <KitchenQuoteBuilder /> block below to disable
+import KitchenQuoteBuilder from '@/components/kitchen/KitchenQuoteBuilder'
 
 
 export default function QuoteItemDetail({
@@ -615,6 +617,9 @@ export default function QuoteItemDetail({
           </>
         )}
       </div>
+
+      {/* KITCHEN ESTIMATOR — remove this block + the import above to disable */}
+      <KitchenQuoteBuilder quoteItemId={item.id} />
 
       {showAiPaste && (
         <SupplierPasteModal
